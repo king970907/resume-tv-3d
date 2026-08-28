@@ -2,7 +2,8 @@
 
 resume-tv-3d — React + TypeScript portfolio rendered as a real 3D scene
 (react-three-fiber), successor to My-RetroTV (which was CSS-only, no WebGL).
-See README.md for concept and component map.
+See README.md for concept and component map, [PLANNING.md](./PLANNING.md) for
+current progress, decision log, and what's next.
 
 ## Tech Stack
 
@@ -65,12 +66,14 @@ split (see project chat history / commit messages for the reasoning).
 
 ## Phase Plan
 
+Status detail and the running decision log live in [PLANNING.md](./PLANNING.md) — this is just the checklist skeleton.
+
 0. ✅ Scaffold — Canvas, lights, OrbitControls, one rotating placeholder mesh
-1. Blockout — TV / DVDPlayer / DVD as primitive geometry, roughly to scale
+1. ✅ Blockout — TV / DVDPlayer / DVD as primitive geometry, roughly to scale
 2. Screen content — wire up texture-preview + fullscreen-overlay split above
-3. Interaction — DVD insert → triggers project preview; click-to-open camera dolly
+3. Interaction — in progress: DVD player tray open/close ✅, TV knob drag (next), DVD case open + select
 4. Polish — HDRI environment, bloom on the CRT glow, shadows, material detail
-5. (optional) Blender pass — swap blockout meshes for Blender-authored GLBs
+5. (optional) Blender pass — swap blockout meshes for Blender-authored GLBs (CRT rear taper is the one known must-do here)
 
 ## Git
 
