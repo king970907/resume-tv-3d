@@ -1,0 +1,54 @@
+/* ── Design Tokens ── */
+:root {
+  --color-bg: #0a0a0a;
+  --color-surface: #1a1a1a;
+  --color-tv-beige: #d4c5a0;
+  --color-tv-shadow: #3a2e1e;
+  --color-crt-green: #39ff14;
+  --color-crt-amber: #ffb000;
+  --color-crt-white: #e8e8d0;
+  --color-dvd-silver: #c0c0c0;
+  --color-dvd-case: #2a2a3a;
+
+  --font-retro: 'VT323', 'Courier New', monospace;
+  --font-body: 'Space Mono', 'Courier New', monospace;
+
+  --z-scene: 1;
+  --z-overlay: 10;
+  --z-modal: 100;
+
+  --transition-fast: 150ms ease;
+  --transition-med: 300ms ease;
+  --transition-slow: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+  color: var(--color-crt-white);
+  font-family: var(--font-body);
+  cursor: default;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.app-root {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
