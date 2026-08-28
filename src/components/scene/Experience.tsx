@@ -22,7 +22,7 @@ export function Experience() {
       {/* Accent — point lights use candela units in this three.js version,
           so this needs to be much higher than a directional/ambient
           intensity to read as anything at all */}
-      <pointLight position={[-0.6, 0.5, -0.4]} intensity={3} color="#39ff14" />
+      <pointLight position={[-0.6, 0.5, -0.4]} intensity={4} color="#39ff14" />
 
       <DVDPlayer />
       <RetroTV />

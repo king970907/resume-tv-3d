@@ -7,7 +7,13 @@ export const TV_DEPTH = 0.54
 
 export const DVD_PLAYER_WIDTH = 0.8
 export const DVD_PLAYER_HEIGHT = 0.06
-export const DVD_PLAYER_DEPTH = 0.28
+export const DVD_PLAYER_DEPTH = 0.54
+
+// Raised front lip along the whole front edge — real AV chassis aren't a
+// uniform slab, the front panel sits a bit proud of the flat top. Sits on
+// top of the main body, flush with its front face.
+export const DVD_PLAYER_LIP_HEIGHT = 0.025
+export const DVD_PLAYER_LIP_DEPTH = 0.05
 
 export const DVD_CASE_WIDTH = 0.02
 export const DVD_CASE_HEIGHT = 0.16
