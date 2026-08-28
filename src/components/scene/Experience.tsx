@@ -9,9 +9,20 @@ export function Experience() {
     <>
       <color attach="background" args={['#0a0a0a']} />
 
-      <ambientLight intensity={0.4} />
+      {/* Overall fill — raised so nothing falls fully black in shadow */}
+      <ambientLight intensity={0.7} />
+
+      {/* Key light — main directional light from above-front, casts the shadows */}
       <directionalLight position={[0.6, 1.2, 0.8]} intensity={1.2} castShadow />
-      <pointLight position={[-0.6, 0.5, -0.4]} intensity={0.15} color="#39ff14" />
+
+      {/* Fill light — low and from the front, specifically to catch the
+          DVD player's face since it sits in the TV's shadow from the key light */}
+      <directionalLight position={[0, 0.35, 1.2]} intensity={0.5} />
+
+      {/* Accent — point lights use candela units in this three.js version,
+          so this needs to be much higher than a directional/ambient
+          intensity to read as anything at all */}
+      <pointLight position={[-0.6, 0.5, -0.4]} intensity={3} color="#39ff14" />
 
       <DVDPlayer />
       <RetroTV />

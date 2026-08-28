@@ -5,13 +5,13 @@ export const TV_WIDTH = 0.54
 export const TV_HEIGHT = 0.48
 export const TV_DEPTH = 0.54
 
-export const DVD_PLAYER_WIDTH = 0.62
+export const DVD_PLAYER_WIDTH = 0.8
 export const DVD_PLAYER_HEIGHT = 0.06
 export const DVD_PLAYER_DEPTH = 0.28
 
-export const DVD_CASE_WIDTH = 0.23
+export const DVD_CASE_WIDTH = 0.02
 export const DVD_CASE_HEIGHT = 0.16
-export const DVD_CASE_DEPTH = 0.02
+export const DVD_CASE_DEPTH = 0.23
 
 export const DVD_DIAMETER = 0.144
 export const DVD_THICKNESS = 0.0014
