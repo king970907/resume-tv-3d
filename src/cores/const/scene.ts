@@ -20,14 +20,17 @@ export const DVD_THICKNESS = 0.0014
 export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0]
 export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0]
 
-// DVD case leans against the TV's right side, resting on the same surface
-// the TV stands on — eyeballed pose, nudge after looking at a render.
-export const DVD_CASE_POSITION: [number, number, number] = [
-  TV_WIDTH / 2 + 0.06,
+// DVD case stands upright and leans against the TV's right side, resting
+// on the same surface the TV stands on. This is the pivot at the case's
+// BOTTOM edge (not its center) — rotating around the base is what makes
+// the top tip toward the TV instead of swinging the whole box into it.
+// Eyeballed pose, nudge after looking at a render.
+export const DVD_CASE_BASE_POSITION: [number, number, number] = [
+  0.33,
   DVD_PLAYER_HEIGHT,
-  0.05,
+  0.02,
 ]
-export const DVD_CASE_LEAN_ANGLE = -0.22 // radians, tilt around Z
+export const DVD_CASE_LEAN_ANGLE = 0.3 // radians, tilt around Z — positive tips the top toward -X (the TV)
 
 export const CAMERA_POSITION: [number, number, number] = [0.55, 0.75, 1.9]
 export const CAMERA_TARGET: [number, number, number] = [0, 0.25, 0]
