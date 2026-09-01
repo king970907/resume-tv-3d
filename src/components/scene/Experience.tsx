@@ -33,7 +33,14 @@ export function Experience() {
         <meshStandardMaterial color="#1a1a1a" />
       </mesh>
 
+      {/* makeDefault registers this instance on the R3F store (useThree
+          -> state.controls), so any mesh's drag handler elsewhere in the
+          tree (the TV knob) can grab it and toggle .enabled — needed
+          because OrbitControls listens on the canvas DOM element directly,
+          outside R3F's own event system, so stopPropagation on a mesh's
+          pointer event can't stop it from also reacting to the same drag. */}
       <OrbitControls
+        makeDefault
         enablePan={false}
         target={CAMERA_TARGET}
         minDistance={ORBIT_MIN_DISTANCE}

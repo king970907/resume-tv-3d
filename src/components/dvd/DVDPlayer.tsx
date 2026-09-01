@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RoundedBox } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
 import type { Group } from 'three'
 import {
@@ -36,7 +37,11 @@ export function DVDPlayer() {
     }
   }, [])
 
-  const handleClick = () => {
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    // Without this, a click that also lands on something farther along the
+    // same ray (the knob, the TV body) would fire that handler too — see
+    // the knob-vs-tray mixup this was added to fix.
+    event.stopPropagation()
     if (!trayPivotRef.current) return
     const next = !isOpen
     setIsOpen(next)
@@ -49,6 +54,12 @@ export function DVDPlayer() {
 
   return (
     <group name="dvd-player" position={DVD_PLAYER_POSITION}>
+      {/* No click handler here on purpose — this is the whole chassis
+          footprint (wide + deep enough to reach under most of the TV), so
+          making it clickable meant almost any stray ray near the knob
+          also hit this and toggled the tray. The actual click target is
+          the tray/lip mesh below — same size and position as a real
+          eject-door area, not the whole case. */}
       <group name="dvd-player-body" position={[0, DVD_PLAYER_HEIGHT / 2, 0]}>
         <RoundedBox
           args={[DVD_PLAYER_WIDTH, DVD_PLAYER_HEIGHT, DVD_PLAYER_DEPTH]}
@@ -56,9 +67,6 @@ export function DVDPlayer() {
           smoothness={4}
           castShadow
           receiveShadow
-          onClick={handleClick}
-          onPointerOver={() => { document.body.style.cursor = 'pointer' }}
-          onPointerOut={() => { document.body.style.cursor = 'default' }}
         >
           <meshStandardMaterial color="#4a4a4a" roughness={0.4} metalness={0.3} />
         </RoundedBox>
@@ -71,15 +79,23 @@ export function DVDPlayer() {
       <group
         name="dvd-player-tray-pivot"
         ref={trayPivotRef}
-        position={[0.15, DVD_PLAYER_HEIGHT * 0.55, TRAY_CLOSED_Z]}
+        position={[0.15, DVD_PLAYER_HEIGHT * 0.3, TRAY_CLOSED_Z]}
       >
-        <mesh castShadow position={[0, 0, TRAY_BOX_Z]}>
+        <mesh
+          castShadow
+          position={[0, 0, TRAY_BOX_Z]}
+          onClick={handleClick}
+          onPointerOver={() => { document.body.style.cursor = 'pointer' }}
+          onPointerOut={() => { document.body.style.cursor = 'default' }}
+        >
           <boxGeometry args={[TRAY_BOX_WIDTH, TRAY_BOX_HEIGHT, TRAY_BOX_DEPTH]} />
           <meshStandardMaterial color="#111" roughness={0.5} />
         </mesh>
 
         {/* Sits on the tray box's top surface, flush with its front face —
-            same "stack + flush" trick as the chassis, just parented here. */}
+            same "stack + flush" trick as the chassis, just parented here.
+            Also clickable — it's the visible "door" of the drawer, same
+            click target as the tray box behind it. */}
         <RoundedBox
           args={[TRAY_BOX_WIDTH, DVD_PLAYER_LIP_HEIGHT, DVD_PLAYER_LIP_DEPTH]}
           radius={0.006}
@@ -91,6 +107,9 @@ export function DVDPlayer() {
           ]}
           castShadow
           receiveShadow
+          onClick={handleClick}
+          onPointerOver={() => { document.body.style.cursor = 'pointer' }}
+          onPointerOut={() => { document.body.style.cursor = 'default' }}
         >
           <meshStandardMaterial color="#3a3a3a" roughness={0.4} metalness={0.3} />
         </RoundedBox>
