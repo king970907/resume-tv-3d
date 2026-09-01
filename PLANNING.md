@@ -41,7 +41,7 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - [x] Phase 1：TV / DVD player / DVD 盒 blockout，pivot 階層照未來互動需求先搭好
 - [x] 光線調校：ambient 墊底 + key/fill 方向光 + 綠色 point light 點綴（candela 單位踩過一次坑，記在下面）
 - [x] DVD player tray 開闔（GSAP tween on click，含 cleanup）
-- [ ] TV 旋鈕拖曳（Step 2 — 需要裝 `@use-gesture/react`，連續手勢轉角度數學）
+- [x] TV 旋鈕拖曳（`@use-gesture/react` drag，放開後 GSAP snap 到 30° 檔位；`channelIndex` state 先備著，等螢幕系統才會用到）
 - [ ] DVD 盒開闔＋選片（Step 3 — hinge 動畫 + 資料驅動的可選 DVD 列表 + 串接 TV 換內容邏輯）
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
@@ -53,7 +53,11 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - **three.js 新版點光源用 candela 單位**，跟方向光/環境光的簡單倍率完全不是同一個量級，數字不能直接套舊直覺，要用「開很低 → 慢慢加 → 過曝就退」的方式試
 - **rotation 的軸心預設是物件自己的幾何中心**——任何「靠、掀、貼地站」的姿態，只要看起來「歪掉插進別的東西裡」，八成是軸心沒搬對地方，不是角度算錯
 - **點擊測試 3D mesh 沒反應時**，先用暫時的 `console.log` 確認 handler 有沒有被呼叫到，區分「event 沒打中」跟「event 打中但邏輯有問題」——mesh 在畫面上可能很細，肉眼點擊容易失準
+- **R3F 的 pointer event 會沿著射線打到的每個「有掛 handler」的物件依序觸發**，不是只有最前面那個——不喊 `event.stopPropagation()` 的話，一次點擊可能同時觸發好幾個疊在同一條射線上的控制項（旋鈕跟 tray 曾經因此互相誤觸）。凡是場景裡有多個可互動物件彼此接近/疊放，handler 裡都該加這行
+- **`OrbitControls` 在 canvas DOM 上是獨立掛原生監聽器的**，跟 R3F 自己的合成事件系統是兩條線，`stopPropagation()` 攔不住它。要讓某個物件的拖曳/點擊不被鏡頭同時搶走，得幫 `<OrbitControls makeDefault />`，再透過 `useThree(state => state.controls)` 拿到同一個實例，手動切 `.enabled`
+- **可互動的 hit-box 範圍要跟造型分開設計**：不要把 `onClick` 隨手掛在整個機身這種大範圍 mesh 上，之後旁邊一長出新的小物件（旋鈕）就會被蓋住/誤觸。掛在真正該負責互動的那個小 mesh（按鈕、把手）上，範圍越貼近視覺上「看起來能按」的區域越好
+- **有個跟我們寫的程式碼無關的既有 console 警告**（`useEffect` deps array 長度變化），用 `git stash` + 切回最初 scaffold commit 驗證過，連空場景都會出現——是 `@react-three/fiber` 9.7.0（目前最新穩定版）+ React 19 StrictMode 的相容性小毛病，不影響功能，先不管它
 
 ## 下一步
 
-Step 2：TV 旋鈕拖曳。
+Step 3：DVD 盒開闔＋選片。
