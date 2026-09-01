@@ -14,10 +14,12 @@ export function RetroTV() {
 
   // OrbitControls 是直接掛在 canvas DOM 元素上的（在 R3F 自己的合成事件系統之外），
   // 所以拖曳旋鈕的同時鏡頭也會一起轉，除非拖曳期間主動把它關掉。這裡的 `controls`
-  // 就是 Experience.tsx 裡 <OrbitControls> 靠 `makeDefault` 註冊上去的那個實例——
-  // 型別故意寫得鬆，因為 R3F 的 store 只保證這是某種 EventDispatcher，不保證有
-  // OrbitControls 的 API。
-  const controls = useThree((state) => state.controls) as { enabled: boolean } | null
+  // 就是 Experience.tsx 裡 <OrbitControls> 靠 `makeDefault` 註冊上去的那個實例。
+  // 先轉成 `unknown` 再轉目標型別——R3F 的 store 只保證這是某種
+  // EventDispatcher，跟 `{ enabled: boolean }` 結構上完全不重疊，直接 `as`
+  // 過去在某些 TypeScript 版本會被判定為「型別不夠重疊」而報錯（TS2352），
+  // 先繞道 `unknown` 是官方建議的寫法，不受版本行為影響。
+  const controls = useThree((state) => state.controls) as unknown as { enabled: boolean } | null
 
   // 目前還沒有任何地方在用——等 Phase 2（螢幕貼圖系統）上線後，會讀這個值決定
   // 要顯示哪個頻道/項目的預覽。拖曳機制跟「切換內容」的串接刻意分成兩步做，
@@ -34,6 +36,10 @@ export function RetroTV() {
     }
   }, [controls])
 
+  // `useDrag` 的回傳型別是個條件型別（config 有沒有帶 target 決定回傳
+  // void 還是可呼叫的 bind function），我們沒有傳 config，這個條件在不同
+  // TypeScript 版本的泛型推斷下可能解讀不一樣，導致 `bindKnobDrag()` 被
+  // 誤判成不能呼叫（TS2349）。明確標出真正的型別，繞過這個推斷歧義。
   const bindKnobDrag = useDrag(({ first, last, delta: [dx], event }) => {
     const pivot = knobPivotRef.current
     if (!pivot) return
@@ -63,7 +69,7 @@ export function RetroTV() {
       gsap.to(pivot.rotation, { z: snapped, duration: KNOB_SNAP_DURATION, ease: 'back.out(2)' })
       setChannelIndex(steps)
     }
-  })
+  }) as unknown as (...args: unknown[]) => Record<string, unknown>
 
   return (
     <group name="tv" position={TV_POSITION}>
