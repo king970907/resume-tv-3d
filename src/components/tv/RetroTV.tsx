@@ -7,33 +7,29 @@ import type { Group } from 'three'
 import { TV_DEPTH, TV_HEIGHT, TV_POSITION, TV_WIDTH } from '@/cores/const/scene'
 import { KNOB_DETENT_ANGLE, KNOB_DRAG_SENSITIVITY, KNOB_SNAP_DURATION } from '@/cores/const/interaction'
 
-// Body / screen / knob are separate objects (not one fused mesh) because
-// the knob needs its own rotation pivot and the screen needs its own
-// material once texture-swapping lands — see CLAUDE.md Phase plan.
+// 機身／螢幕／旋鈕分開成獨立物件（不是融成一顆 mesh），因為旋鈕需要自己的
+// 旋轉軸心，螢幕之後貼圖系統上線也需要自己的材質——見 CLAUDE.md 的 Phase 計畫。
 export function RetroTV() {
   const knobPivotRef = useRef<Group>(null)
 
-  // OrbitControls listens on the canvas DOM element directly (outside R3F's
-  // synthetic event tree), so dragging the knob would spin the camera at
-  // the same time unless we explicitly disable it for the duration of the
-  // drag. `controls` here is whatever instance registered via `makeDefault`
-  // on <OrbitControls> in Experience.tsx — typed loosely because R3F's
-  // store only guarantees an EventDispatcher, not the OrbitControls API.
+  // OrbitControls 是直接掛在 canvas DOM 元素上的（在 R3F 自己的合成事件系統之外），
+  // 所以拖曳旋鈕的同時鏡頭也會一起轉，除非拖曳期間主動把它關掉。這裡的 `controls`
+  // 就是 Experience.tsx 裡 <OrbitControls> 靠 `makeDefault` 註冊上去的那個實例——
+  // 型別故意寫得鬆，因為 R3F 的 store 只保證這是某種 EventDispatcher，不保證有
+  // OrbitControls 的 API。
   const controls = useThree((state) => state.controls) as { enabled: boolean } | null
 
-  // Not consumed anywhere yet — Phase 2 (screen texture system) will read
-  // this to pick which channel/project preview to show. Keeping the drag
-  // mechanic and the content-switching wiring as separate steps, same as
-  // the DVD player tray landed before it was wired to anything either.
+  // 目前還沒有任何地方在用——等 Phase 2（螢幕貼圖系統）上線後，會讀這個值決定
+  // 要顯示哪個頻道/項目的預覽。拖曳機制跟「切換內容」的串接刻意分成兩步做，
+  // 跟 DVD player 的 tray 一樣，先做完機構動作，之後才接資料。
   const [, setChannelIndex] = useState(0)
 
   useEffect(() => {
     const pivot = knobPivotRef.current
     return () => {
       if (pivot) gsap.killTweensOf(pivot.rotation)
-      // Safety net: if this unmounts mid-drag (e.g. a scene switch),
-      // don't leave OrbitControls permanently disabled for whatever
-      // replaces it.
+      // 防呆：如果拖曳「途中」這個元件被整個拆掉（例如之後做場景切換），
+      // 不要留下一顆永遠被鎖死、之後接手的東西再也轉不動的鏡頭。
       if (controls) controls.enabled = true
     }
   }, [controls])
@@ -42,19 +38,18 @@ export function RetroTV() {
     const pivot = knobPivotRef.current
     if (!pivot) return
 
-    // Otherwise a ray that hits the knob can still carry on to whatever
-    // sits farther behind it (the TV body, the DVD player) and fire that
-    // object's own handlers too — see DVDPlayer's handleClick for the
-    // matching half of this fix.
+    // 不喊停的話，打中旋鈕的這條射線還是會繼續往後面傳，打到後面的東西
+    // （TV 機身、DVD player）也把它們的 handler 一起觸發——對應 DVDPlayer
+    // 那邊 handleClick 做的另一半修正。
     event.stopPropagation()
 
     if (first) {
-      // A tween from the previous release might still be settling into its
-      // detent — a new grab should take over immediately, not fight it.
+      // 上一輪放開後的 tween 可能還在往檔位滑，重新抓住旋鈕時要立刻接管，
+      // 不要跟它打架。
       gsap.killTweensOf(pivot.rotation)
-      // `controls` is a live three.js OrbitControls instance handed out by
-      // useThree, not React state — toggling .enabled imperatively is the
-      // intended way to use it, same as mutating pivot.rotation.z below.
+      // `controls` 是 useThree 拿到的、真實存在的 three.js OrbitControls 實例，
+      // 不是 React state——直接改 .enabled 就是它預期的用法，跟下面直接改
+      // pivot.rotation.z 是同一種「命令式操作 three.js 物件」的邏輯。
       // oxlint-disable-next-line react/immutability
       if (controls) controls.enabled = false
     }
@@ -84,17 +79,16 @@ export function RetroTV() {
         </RoundedBox>
       </group>
 
-      {/* Placeholder screen — flat plane for now, gets a canvas/texture material in Phase 2 */}
+      {/* 螢幕先用一片平面佔位，Phase 2 才會換成真的貼圖/canvas 材質 */}
       <mesh name="tv-screen" position={[0, TV_HEIGHT * 0.56, TV_DEPTH / 2 + 0.002]}>
         <planeGeometry args={[TV_WIDTH * 0.62, TV_HEIGHT * 0.5]} />
         <meshStandardMaterial color="#0a1a0a" emissive="#39ff14" emissiveIntensity={0.08} />
       </mesh>
 
-      {/* Pivot for the channel knob — rotation.z is what drag/snap animate.
-          Rotating THIS group (not the knob mesh's own rotation) spins the
-          knob around its own barrel axis, because the group isn't rotated
-          relative to world Z and the knob mesh's fixed x-rotation just lays
-          the cylinder so that barrel axis points along world Z already. */}
+      {/* 頻道旋鈕的軸心——拖曳/snap 動的是這個 group 的 rotation.z。
+          轉的是這個 group 本身（不是旋鈕 mesh 自己的 rotation），因為這個
+          group 相對世界座標沒有額外旋轉，旋鈕 mesh 那個固定的 x 軸旋轉只是
+          把圓柱「橫躺」讓它的軸心本來就對齊世界 Z 軸而已。 */}
       <group
         name="tv-knob-pivot"
         ref={knobPivotRef}
@@ -111,9 +105,8 @@ export function RetroTV() {
           <meshStandardMaterial color="#3a2e1e" roughness={0.5} />
         </mesh>
 
-        {/* Indicator tick — the knob is a plain cylinder, otherwise
-            rotationally symmetric, so without a visible marker turning it
-            would look like nothing is happening at all. */}
+        {/* 指示刻度——旋鈕本身是個旋轉對稱的圓柱體，沒有這個標記的話，
+            轉了也完全看不出差異。 */}
         <mesh position={[0.022, 0, 0.017]} castShadow>
           <boxGeometry args={[0.01, 0.004, 0.004]} />
           <meshStandardMaterial color="#e8e8d0" roughness={0.5} />

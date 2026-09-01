@@ -6,16 +6,13 @@ import {
   DVD_CASE_WIDTH,
 } from '@/cores/const/scene'
 
-// Leaning against something means the BASE stays planted and the TOP
-// swings toward the surface — like a book leaned against a wall. So the
-// lean rotation's pivot has to be the case's bottom edge, not its
-// geometric center (rotating around the center swings the near corner
-// into the TV instead of just tipping the top over).
+// 斜靠著某個東西的姿態，是「底部不動、頂部往靠著的表面倒」——像一本書靠在
+// 牆上一樣。所以傾斜旋轉的軸心要放在盒子的底部邊緣，不是幾何中心（繞中心轉
+// 的話，靠近的那個角會往 TV 裡甩進去，不是單純把頂部往外倒而已）。
 //
-// dvd-case-lean-pivot sits at the base, at ground level. The inner
-// dvd-case group is offset up by half the case height so the case
-// visually "stands" on that base point — same trick as tv-body/
-// dvd-player-body, just for a rotated pivot instead of a level one.
+// dvd-case-lean-pivot 放在底部、貼地的高度。裡面的 dvd-case group 再往上
+// 位移半個盒子高度，讓盒子視覺上「站」在這個底部支點上——跟 tv-body／
+// dvd-player-body 是同一招，只是這次的支點是有旋轉的，不是單純貼地而已。
 export function DVDCase() {
   return (
     <group

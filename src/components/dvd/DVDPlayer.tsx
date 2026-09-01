@@ -16,16 +16,15 @@ import { DVD_TRAY_ANIM_DURATION, DVD_TRAY_OPEN_DISTANCE } from '@/cores/const/in
 const TRAY_CLOSED_Z = DVD_PLAYER_DEPTH / 3.5
 const TRAY_OPEN_Z = TRAY_CLOSED_Z + DVD_TRAY_OPEN_DISTANCE
 
-// Tray box dims — named so the lip (which has to sit flush with this
-// box's own top/front faces) can reference them instead of repeating
-// the same numbers in two places.
+// Tray box 的尺寸——抽成具名常數，這樣凸起 lip（需要跟這個 box 的頂面/前面
+// 對齊）可以直接引用，不用同一組數字在兩個地方各寫一次。
 const TRAY_BOX_WIDTH = DVD_PLAYER_WIDTH * 0.3
 const TRAY_BOX_HEIGHT = DVD_PLAYER_HEIGHT * 0.35
 const TRAY_BOX_DEPTH = 0.25
 const TRAY_BOX_Z = 0.005
 
-// Tray is a separate object sitting at the front face — its pivot group's
-// position.z is what we tween on click, body geometry never moves.
+// Tray 是獨立於機身之外的物件，卡在前臉的位置——它的 pivot group 的
+// position.z 就是點擊時要 tween 的目標值，機身的 geometry 本身永遠不動。
 export function DVDPlayer() {
   const trayPivotRef = useRef<Group>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -38,9 +37,8 @@ export function DVDPlayer() {
   }, [])
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
-    // Without this, a click that also lands on something farther along the
-    // same ray (the knob, the TV body) would fire that handler too — see
-    // the knob-vs-tray mixup this was added to fix.
+    // 不喊停的話，同一條射線只要還打中後面的其他東西（旋鈕、TV 機身），
+    // 那些的 handler 也會一起被觸發——就是旋鈕跟 tray 互相誤觸那次修的。
     event.stopPropagation()
     if (!trayPivotRef.current) return
     const next = !isOpen
@@ -54,12 +52,10 @@ export function DVDPlayer() {
 
   return (
     <group name="dvd-player" position={DVD_PLAYER_POSITION}>
-      {/* No click handler here on purpose — this is the whole chassis
-          footprint (wide + deep enough to reach under most of the TV), so
-          making it clickable meant almost any stray ray near the knob
-          also hit this and toggled the tray. The actual click target is
-          the tray/lip mesh below — same size and position as a real
-          eject-door area, not the whole case. */}
+      {/* 這裡故意不掛點擊 handler——這是整個機身的範圍（夠寬夠深，幾乎整個
+          TV 底下都算在內），掛了可點擊的話，隨便一條打歪的射線只要落在這個
+          範圍裡都會誤觸 tray。真正的點擊目標在下面的 tray/lip mesh 上——
+          範圍跟位置就跟真實的出片門差不多大，不是整個機身。 */}
       <group name="dvd-player-body" position={[0, DVD_PLAYER_HEIGHT / 2, 0]}>
         <RoundedBox
           args={[DVD_PLAYER_WIDTH, DVD_PLAYER_HEIGHT, DVD_PLAYER_DEPTH]}
@@ -72,10 +68,9 @@ export function DVDPlayer() {
         </RoundedBox>
       </group>
 
-      {/* Pivot for the disc tray — position.z is the tween target above.
-          The raised front lip lives IN here (not on dvd-player-body)
-          because it's the tray/drawer's own face — it has to slide out
-          together with the tray, not stay fixed to the chassis. */}
+      {/* 出片匣的軸心——position.z 就是上面 tween 的目標值。前緣凸起放在這裡
+          （不是放在 dvd-player-body）是因為它是 tray/抽屜自己的門面，
+          必須跟著 tray 一起滑出去，不能焊死在機殼上。 */}
       <group
         name="dvd-player-tray-pivot"
         ref={trayPivotRef}
@@ -92,10 +87,9 @@ export function DVDPlayer() {
           <meshStandardMaterial color="#111" roughness={0.5} />
         </mesh>
 
-        {/* Sits on the tray box's top surface, flush with its front face —
-            same "stack + flush" trick as the chassis, just parented here.
-            Also clickable — it's the visible "door" of the drawer, same
-            click target as the tray box behind it. */}
+        {/* 疊在 tray box 的頂面上，跟它的前面切齊——跟機身那組「疊上去 +
+            對齊前臉」的套路一樣，只是這次的父層換成這裡。同樣可以點擊，
+            它是抽屜看得到的「門」，跟後面的 tray box 是同一個點擊目標。 */}
         <RoundedBox
           args={[TRAY_BOX_WIDTH, DVD_PLAYER_LIP_HEIGHT, DVD_PLAYER_LIP_DEPTH]}
           radius={0.006}

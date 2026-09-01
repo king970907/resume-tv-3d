@@ -4,8 +4,8 @@ import { Experience } from './Experience'
 import { CAMERA_FOV, CAMERA_POSITION } from '@/cores/const/scene'
 import styles from './MainScene.module.css'
 
-// Canvas owns its own render loop, independent of React's render cycle —
-// everything inside it (Experience) is Three.js scene graph, not DOM.
+// Canvas 有自己獨立的 render loop，跟 React 的 render 週期不同步——
+// 裡面（Experience）裝的是 Three.js 的場景圖，不是 DOM。
 export function MainScene() {
   return (
     <div className={styles.scene}>

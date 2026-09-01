@@ -62,6 +62,8 @@ split (see project chat history / commit messages for the reasoning).
 - Functional components only, named exports everywhere — `App` is the only
   default export
 - No comments describing WHAT code does; only WHY when non-obvious
+- **Comments are written in Traditional Chinese** (code/identifiers stay
+  English) — this diverges from My-RetroTV, which used English comments
 - No barrel `index.ts` files — import from the concrete module path
 
 ## Phase Plan
