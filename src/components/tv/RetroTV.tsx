@@ -17,7 +17,11 @@ interface RetroTVProps {
 // 旋轉軸心，螢幕之後貼圖系統上線也需要自己的材質——見 CLAUDE.md 的 Phase 計畫。
 export function RetroTV({ pageCount = KNOB_DEFAULT_PAGE_COUNT }: RetroTVProps) {
   const knobPivotRef = useRef<Group>(null)
-  const pageIndexRef = useRef(0)
+  // 累計「按過幾次」，永遠只增加、不取餘數——這是拿來算動畫目標角度用的，
+  // 跟下面的邏輯頁碼（會用餘數繞回 0~pageCount-1）分開存。角度如果也取
+  // 餘數，繞回第 0 頁時目標角度會突然變回 0，GSAP 會照數字差距直接補間，
+  // 變成往回轉一大圈，而不是照原本方向繼續多轉一格。
+  const stepCountRef = useRef(0)
 
   // 之後 Phase 2（螢幕貼圖系統）會讀這個 state 決定螢幕要顯示哪一頁的預覽。
   // 旋鈕機制跟「切換內容」的串接刻意分成兩步做，跟 DVD player 的 tray 一樣，
@@ -41,15 +45,17 @@ export function RetroTV({ pageCount = KNOB_DEFAULT_PAGE_COUNT }: RetroTVProps) {
 
     gsap.killTweensOf(pivot.rotation)
 
-    // 用 ref 存目前頁數（不是直接讀 state），避免快速連續點擊時吃到還沒
-    // 更新完的舊值——setState 是非同步的，這裡需要的是「當下真正的頁數」。
-    const nextIndex = (pageIndexRef.current + 1) % pageCount
-    pageIndexRef.current = nextIndex
-    setChannelIndex(nextIndex)
+    // 用 ref 存目前累計次數（不是直接讀 state），避免快速連續點擊時吃到還
+    // 沒更新完的舊值——setState 是非同步的，這裡需要的是「當下真正的次數」。
+    stepCountRef.current += 1
+    const pageIndex = stepCountRef.current % pageCount
+    setChannelIndex(pageIndex)
 
+    // 目標角度用累計次數算，不是用 pageIndex（繞回 0 之後的餘數）算——
+    // 這樣不管繞了幾圈，每次點擊的動畫永遠是「照原本方向多轉一格」。
     const stepAngle = (Math.PI * 2) / pageCount
     gsap.to(pivot.rotation, {
-      z: -nextIndex * stepAngle,
+      z: -stepCountRef.current * stepAngle,
       duration: KNOB_STEP_DURATION,
       ease: 'back.out(1.7)',
     })
