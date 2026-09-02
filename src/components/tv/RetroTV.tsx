@@ -7,9 +7,9 @@ import { TV_DEPTH, TV_HEIGHT, TV_POSITION, TV_WIDTH } from '@/cores/const/scene'
 import { KNOB_DEFAULT_PAGE_COUNT, KNOB_STEP_DURATION } from '@/cores/const/interaction'
 
 interface RetroTVProps {
-  // 目前的頁數——沒插 DVD 時是固定的 4 個個人頁面，插入 DVD 後 Step 3 會
-  // 把這裡換成該片的作品數量。每格角度永遠是 360° / pageCount，公式不用改，
-  // 只是換一個數字進來。
+  // 目前的頁數——預設 0（還沒有真正的內容，見 KNOB_DEFAULT_PAGE_COUNT）。
+  // 之後接上個人頁面資料，或插入 DVD 後 Step 3 傳作品數量進來，才會變成
+  // 有意義的正整數。每格角度永遠是 360° / pageCount，公式不用改，換數字就好。
   pageCount?: number
 }
 
@@ -39,6 +39,10 @@ export function RetroTV({ pageCount = KNOB_DEFAULT_PAGE_COUNT }: RetroTVProps) {
     // 不喊停的話，這條射線還是會繼續往後面傳，打到後面的 DVD player 也把
     // 它的 handler 一起觸發——跟 DVDPlayer 那邊 handleClick 的修正對稱。
     event.stopPropagation()
+
+    // 頁數是 0 代表還沒有真正的內容可以切（資料層還沒接上）——旋鈕維持
+    // 可以點、有 hover 游標，但點了不會動，不要除以 0 也不要假裝有內容。
+    if (pageCount <= 0) return
 
     const pivot = knobPivotRef.current
     if (!pivot) return
