@@ -35,14 +35,23 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 **CRT 電視後方圓弧「大屁股」造型目前跳過**——box 系列 geometry 做不出「前方正、後方漸縮成圓弧」這種漸變曲面，這個留到評估 Blender 的階段再處理（`LatheGeometry` 或 Blender sculpt/lathe 都是候選做法）。
 
+### TV 旋鈕：點擊式切頁，不是自由拖曳
+
+原本做的是連續拖曳（放開後 GSAP snap 到最近 30° 檔位），改成**點一下轉固定角度**，理由：
+
+- 拖曳手感不好控制（使用者回報的原始問題）
+- 拖曳勢必要跟 `OrbitControls` 搶事件——改成點擊之後，`OrbitControls` 只在偵測到「按下+移動」才會反應，單純點擊完全不會被搶，連帶拿掉了整套 `useThree`/`controls.enabled` 開關機制，也拿掉了 `@use-gesture/react` 這個依賴
+
+角度公式是 `360° / pageCount`，`pageCount` 是 `RetroTV` 的 prop（預設 `KNOB_DEFAULT_PAGE_COUNT = 4`，四個固定個人頁面）。Step 3 做完 DVD 選片後，`Experience.tsx` 會把「目前插入的 DVD 有幾個作品」傳進這個 prop——3 個作品就是 120°、4 個就是 90°，公式本身不用改，只是換數字。
+
 ## 目前進度
 
 - [x] Phase 0：Vite + React 19 + R3F scaffold，Canvas/燈光/OrbitControls 跑通
 - [x] Phase 1：TV / DVD player / DVD 盒 blockout，pivot 階層照未來互動需求先搭好
 - [x] 光線調校：ambient 墊底 + key/fill 方向光 + 綠色 point light 點綴（candela 單位踩過一次坑，記在下面）
 - [x] DVD player tray 開闔（GSAP tween on click，含 cleanup）
-- [x] TV 旋鈕拖曳（`@use-gesture/react` drag，放開後 GSAP snap 到 30° 檔位；`channelIndex` state 先備著，等螢幕系統才會用到）
-- [ ] DVD 盒開闔＋選片（Step 3 — hinge 動畫 + 資料驅動的可選 DVD 列表 + 串接 TV 換內容邏輯）
+- [x] TV 旋鈕：**點擊式**切頁（原本是拖曳，改成點一下轉一格，見下方決策說明）
+- [ ] DVD 盒開闔＋選片（Step 3 — hinge 動畫 + 資料驅動的可選 DVD 列表 + 串接 TV 換內容邏輯，還要把作品數量接進旋鈕的 `pageCount`）
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
 - [ ] 視覺收尾：HDRI 環境、bloom 後製、材質細節
