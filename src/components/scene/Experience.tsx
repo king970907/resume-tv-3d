@@ -32,14 +32,7 @@ export function Experience() {
         <meshStandardMaterial color="#1a1a1a" />
       </mesh>
 
-      {/* makeDefault 會把這個實例登記到 R3F 的 store 上（useThree 的
-          state.controls），這樣場景樹裡其他元件（TV 旋鈕）的拖曳 handler
-          才能拿到同一個實例去切換它的開關——之所以需要這樣做，是因為
-          OrbitControls 直接掛在 canvas DOM 元素上監聽，在 R3F 自己的事件
-          系統之外，某個 mesh 的 pointer event 喊 stopPropagation 攔不住它
-          同時對同一次拖曳做出反應。 */}
       <OrbitControls
-        makeDefault
         enablePan={false}
         target={CAMERA_TARGET}
         minDistance={ORBIT_MIN_DISTANCE}

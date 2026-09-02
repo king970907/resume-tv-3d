@@ -4,6 +4,7 @@
 export const DVD_TRAY_OPEN_DISTANCE = 0.14 // tray 沿 +Z 滑出的距離（公尺）
 export const DVD_TRAY_ANIM_DURATION = 0.5 // 秒
 
-export const KNOB_DETENT_ANGLE = Math.PI / 6 // 每個頻道檔位的角度（30°）
-export const KNOB_DRAG_SENSITIVITY = 0.01 // 每拖曳 1 像素對應轉動的弧度
-export const KNOB_SNAP_DURATION = 0.3 // 放開後 snap 到最近檔位要花的秒數
+// 沒有插 DVD 時的預設頁數：個人頁／技能／經歷／聯絡方式。插入 DVD 後頁數
+// 會改成該片作品數量（Step 3 才會接），每格角度永遠是 360° / 頁數，不寫死。
+export const KNOB_DEFAULT_PAGE_COUNT = 4
+export const KNOB_STEP_DURATION = 0.35 // 秒，每按一次的轉動動畫時間
