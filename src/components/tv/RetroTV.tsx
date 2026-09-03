@@ -106,8 +106,9 @@ export function RetroTV({ pageCount = KNOB_DEFAULT_PAGE_COUNT }: RetroTVProps) {
         </mesh>
 
         {/* 指示刻度——旋鈕本身是個旋轉對稱的圓柱體，沒有這個標記的話，
-            轉了也完全看不出差異。 */}
-        <mesh position={[0.022, 0, 0.017]} castShadow>
+            轉了也完全看不出差異。位置放在 +Y（正上方），這樣 rotation.z
+            預設是 0 的時候，刻度剛好指向正上方，視覺上讀作「0 度」。 */}
+        <mesh position={[0, 0.022, 0.017]} castShadow>
           <boxGeometry args={[0.01, 0.004, 0.004]} />
           <meshStandardMaterial color="#e8e8d0" roughness={0.5} />
         </mesh>
