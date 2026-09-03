@@ -14,9 +14,12 @@ export const DVD_PLAYER_DEPTH = 0.54
 export const DVD_PLAYER_LIP_HEIGHT = 0.025
 export const DVD_PLAYER_LIP_DEPTH = 0.05
 
-export const DVD_CASE_WIDTH = 0.02
+// 改回真實 DVD 盒比例（寬 x 高的正面朝鏡頭，深度是最薄的那個軸）——寬深
+// 之前被手動對調過，導致盒子太窄、碟片正面朝鏡頭時完全塞不進去，只能側面
+// 朝向，但側面朝向在目前的鏡頭角度下幾乎看不到圓面（驗證過，不是角度問題）。
+export const DVD_CASE_WIDTH = 0.23
 export const DVD_CASE_HEIGHT = 0.16
-export const DVD_CASE_DEPTH = 0.23
+export const DVD_CASE_DEPTH = 0.02
 
 export const DVD_DIAMETER = 0.144
 export const DVD_THICKNESS = 0.0014

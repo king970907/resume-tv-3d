@@ -9,3 +9,6 @@ export const DVD_TRAY_ANIM_DURATION = 0.5 // 秒
 // （個人頁面或插入的 DVD 作品數），才會傳非零的 pageCount 進來。
 export const KNOB_DEFAULT_PAGE_COUNT = 0
 export const KNOB_STEP_DURATION = 0.35 // 秒，每按一次的轉動動畫時間
+
+export const DVD_CASE_OPEN_ANGLE = -2.4 // 弧度（約 -137°），封面掀開的角度
+export const DVD_CASE_OPEN_DURATION = 0.5 // 秒
