@@ -42,7 +42,13 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - 拖曳手感不好控制（使用者回報的原始問題）
 - 拖曳勢必要跟 `OrbitControls` 搶事件——改成點擊之後，`OrbitControls` 只在偵測到「按下+移動」才會反應，單純點擊完全不會被搶，連帶拿掉了整套 `useThree`/`controls.enabled` 開關機制，也拿掉了 `@use-gesture/react` 這個依賴
 
-角度公式是 `360° / pageCount`，`pageCount` 是 `RetroTV` 的 prop（預設 `KNOB_DEFAULT_PAGE_COUNT = 4`，四個固定個人頁面）。Step 3 做完 DVD 選片後，`Experience.tsx` 會把「目前插入的 DVD 有幾個作品」傳進這個 prop——3 個作品就是 120°、4 個就是 90°，公式本身不用改，只是換數字。
+角度公式是 `360° / pageCount`，`pageCount` 是 `RetroTV` 的 prop（**預設 0**——資料層還沒接上真正的內容，旋鈕先保持可點但點了不會動，不假裝有內容，見 `KNOB_DEFAULT_PAGE_COUNT`）。Step 3 做完 DVD 選片後，`Experience.tsx` 會把「目前插入的 DVD 有幾個作品」傳進這個 prop——3 個作品就是 120°、4 個就是 90°，公式本身不用改，只是換數字。
+
+### DVD 盒：一片碟 = 一個項目，直接點碟選片
+
+盒子打開後裡面排的是 `PROJECTS`（`src/data/projects.ts`，目前是 placeholder）裡的每一筆，一筆一片碟。選片是**直接點想要的那片碟**（不是用旋鈕當選單游標），選中後之後會觸發「飛進 player」的動畫（還沒做）。旋鈕全程跟選片無關，只負責固定的個人頁面。
+
+`DVD_CASE_WIDTH`/`DVD_CASE_DEPTH` 之前被手動對調過（0.02/0.23），這次因為要塞碟片進去踩到真的坑：碟片直徑 0.144 比對調後的寬度窄 10 倍塞不進去，改成側面朝向後，圓面又落在跟主鏡頭視角垂直的平面上、幾乎看不到（用鮮豔除錯色 + 大幅轉鏡頭驗證過，不是猜的）。最後改回真實比例（`WIDTH=0.23`、`DEPTH=0.02`）才解決，這也是「先驗證再下結論」這個習慣抓到的一個好例子。
 
 ## 目前進度
 
@@ -51,7 +57,8 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - [x] 光線調校：ambient 墊底 + key/fill 方向光 + 綠色 point light 點綴（candela 單位踩過一次坑，記在下面）
 - [x] DVD player tray 開闔（GSAP tween on click，含 cleanup）
 - [x] TV 旋鈕：**點擊式**切頁（原本是拖曳，改成點一下轉一格，見下方決策說明）
-- [ ] DVD 盒開闔＋選片（Step 3 — hinge 動畫 + 資料驅動的可選 DVD 列表 + 串接 TV 換內容邏輯，還要把作品數量接進旋鈕的 `pageCount`）
+- [x] DVD 盒開闔＋選片（Step 3 前半 — hinge 動畫、`Project`/`PROJECTS` 資料層、`DVD.tsx` 碟片、開盒後排列可點擊的碟）
+- [ ] 選片後「插入 player」動畫 + 串接 TV 換內容邏輯 + 把作品數量接進旋鈕的 `pageCount`（Step 3 後半）
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
 - [ ] 視覺收尾：HDRI 環境、bloom 後製、材質細節
@@ -69,4 +76,4 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 ## 下一步
 
-Step 3：DVD 盒開闔＋選片。
+Step 3 後半：選片後插入 player 的動畫、串接 TV 換內容、旋鈕 `pageCount` 接上作品數量。
