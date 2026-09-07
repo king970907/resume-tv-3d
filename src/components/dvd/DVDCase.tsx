@@ -11,7 +11,14 @@ import {
 } from '@/cores/const/scene'
 import { DVD_CASE_OPEN_ANGLE, DVD_CASE_OPEN_DURATION } from '@/cores/const/interaction'
 import { PROJECTS } from '@/data/projects'
+import type { Project } from '@/cores/types/project'
 import { DVD } from './DVD'
+
+// 盒子裡的碟片純粹是裝飾——真正的資料在 DVDSelector 那組飄浮碟片裡。固定
+// 一片，不要跟著 PROJECTS 數量長：疊太多片會像一疊沒對齊的百葉窗（3 片
+// 就已經看得出一圈一圈的邊緣，4、5 片只會更明顯），而且盒子本來就不該
+// 暗示「裡面裝著跟項目數量一樣多的碟」。
+const DECORATIVE_DISC_PROJECT: Project = PROJECTS[0]
 
 interface DVDCaseProps {
   // 受控元件——開闔狀態由 Experience.tsx 統一管理（跟 DVDSelector 共用
@@ -24,9 +31,7 @@ interface DVDCaseProps {
 // 封底這個 box 中心在 z = -DEPTH/4、半厚度 DEPTH/4，所以前面那個面（朝向
 // 開闔方向、鏡頭看得到的那面）落在 z = 0。碟片要貼在這個面前面一點點，
 // 不是貼在封底的幾何中心——中心是實心的，放在那裡碟片會被整個蓋子擋住。
-const DISC_BASE_Z = 0.002
-const DISC_Z_STEP = 0.002 // 每片往前疊一點點，避免完全共平面 z-fighting
-const DISC_X_SPACING = 0.05 // 沿寬度方向扇開一點，讓每片碟的中心點分開，方便個別點擊
+const DISC_Z = 0.002
 
 export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
   const coverPivotRef = useRef<Group>(null)
@@ -69,19 +74,9 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
         <meshStandardMaterial color="#3a3a4e" roughness={0.3} />
       </mesh>
 
-      {/* 盒子裡靜靜躺著當裝飾用的碟片——真正拿來選的那組是 DVDSelector，
+      {/* 盒子裡靜靜躺著一片裝飾用的碟——真正拿來選的那組是 DVDSelector，
           開盒後在鏡頭前面用世界座標飛出來，不會被這個盒子的姿態影響。 */}
-      {PROJECTS.map((project, i) => (
-        <DVD
-          key={project.id}
-          project={project}
-          position={[
-            (i - (PROJECTS.length - 1) / 2) * DISC_X_SPACING,
-            0,
-            DISC_BASE_Z + i * DISC_Z_STEP,
-          ]}
-        />
-      ))}
+      <DVD project={DECORATIVE_DISC_PROJECT} position={[0, 0, DISC_Z]} />
 
       <group
         name="dvd-case-front-cover-pivot"
