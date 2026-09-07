@@ -67,8 +67,10 @@ export function Experience() {
   }, [isDvdSelectorOpen, controls])
 
   const handleSelectProject = (project: Project) => {
-    // 還沒接——之後這裡會觸發「碟片飛進 player」的動畫，見 CLAUDE.md Phase 3。
-    void project
+    // 佔位——真正的行為是「切換 TV 螢幕顯示這個項目」，但螢幕貼圖系統
+    // （Phase 2）還沒做，先用 alert 頂著，之後直接替換這行就好，不用動
+    // 選片畫面關閉的邏輯。
+    alert(`切換螢幕：${project.title}`)
     setIsDvdSelectorOpen(false)
   }
 
