@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { RoundedBox } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
@@ -9,12 +9,13 @@ import {
   DVD_PLAYER_LIP_DEPTH,
   DVD_PLAYER_LIP_HEIGHT,
   DVD_PLAYER_POSITION,
+  DVD_PLAYER_TRAY_CLOSED_Z,
+  DVD_PLAYER_TRAY_OPEN_Z,
+  DVD_PLAYER_TRAY_X,
+  DVD_PLAYER_TRAY_Y,
   DVD_PLAYER_WIDTH,
 } from '@/cores/const/scene'
-import { DVD_TRAY_ANIM_DURATION, DVD_TRAY_OPEN_DISTANCE } from '@/cores/const/interaction'
-
-const TRAY_CLOSED_Z = DVD_PLAYER_DEPTH / 3.5
-const TRAY_OPEN_Z = TRAY_CLOSED_Z + DVD_TRAY_OPEN_DISTANCE
+import { DVD_TRAY_ANIM_DURATION } from '@/cores/const/interaction'
 
 // Tray box 的尺寸——抽成具名常數，這樣凸起 lip（需要跟這個 box 的頂面/前面
 // 對齊）可以直接引用，不用同一組數字在兩個地方各寫一次。
@@ -23,11 +24,29 @@ const TRAY_BOX_HEIGHT = DVD_PLAYER_HEIGHT * 0.35
 const TRAY_BOX_DEPTH = 0.25
 const TRAY_BOX_Z = 0.005
 
+interface DVDPlayerProps {
+  // 受控元件——開闔狀態由 Experience.tsx 統一管理，這樣「選片後插入」流程
+  // 才能從外部命令 tray 開闔，不是只能靠使用者手動點擊。點擊互動本身還是
+  // 保留在這個元件內，只是觸發後改成呼叫 onToggle，不再自己管 state。
+  isOpen: boolean
+  onToggle: () => void
+}
+
 // Tray 是獨立於機身之外的物件，卡在前臉的位置——它的 pivot group 的
 // position.z 就是點擊時要 tween 的目標值，機身的 geometry 本身永遠不動。
-export function DVDPlayer() {
+export function DVDPlayer({ isOpen, onToggle }: DVDPlayerProps) {
   const trayPivotRef = useRef<Group>(null)
-  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const pivot = trayPivotRef.current
+    if (!pivot) return
+    gsap.killTweensOf(pivot.position)
+    gsap.to(pivot.position, {
+      z: isOpen ? DVD_PLAYER_TRAY_OPEN_Z : DVD_PLAYER_TRAY_CLOSED_Z,
+      duration: DVD_TRAY_ANIM_DURATION,
+      ease: 'power2.out',
+    })
+  }, [isOpen])
 
   useEffect(() => {
     const pivot = trayPivotRef.current
@@ -40,14 +59,7 @@ export function DVDPlayer() {
     // 不喊停的話，同一條射線只要還打中後面的其他東西（旋鈕、TV 機身），
     // 那些的 handler 也會一起被觸發——就是旋鈕跟 tray 互相誤觸那次修的。
     event.stopPropagation()
-    if (!trayPivotRef.current) return
-    const next = !isOpen
-    setIsOpen(next)
-    gsap.to(trayPivotRef.current.position, {
-      z: next ? TRAY_OPEN_Z : TRAY_CLOSED_Z,
-      duration: DVD_TRAY_ANIM_DURATION,
-      ease: 'power2.out',
-    })
+    onToggle()
   }
 
   return (
@@ -74,7 +86,7 @@ export function DVDPlayer() {
       <group
         name="dvd-player-tray-pivot"
         ref={trayPivotRef}
-        position={[0.15, DVD_PLAYER_HEIGHT * 0.3, TRAY_CLOSED_Z]}
+        position={[DVD_PLAYER_TRAY_X, DVD_PLAYER_TRAY_Y, DVD_PLAYER_TRAY_CLOSED_Z]}
       >
         <mesh
           castShadow
