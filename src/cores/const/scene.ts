@@ -28,15 +28,18 @@ export const DVD_THICKNESS = 0.0014
 export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0]
 export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0]
 
-// DVD 盒站著、斜靠在 TV 右側，底部貼在 TV 站的同一個面上。這裡的支點是盒子
-// 的「底部邊緣」，不是幾何中心——繞底部轉，頂部才會往 TV 那邊倒，不會整顆
-// 甩進 TV 裡。姿態是憑感覺抓的，看過算圖再微調。
-export const DVD_CASE_BASE_POSITION: [number, number, number] = [
-  0.33,
-  DVD_PLAYER_HEIGHT,
-  0.02,
+// DVD 盒改成平放在 TV 頂面上，隨性斜放（不再是站著靠在 TV 側邊那套姿態，
+// 那套「底部支點、傾角算物理」的設計已經拿掉）。TV 頂面世界座標 y =
+// DVD_PLAYER_HEIGHT + TV_HEIGHT；再加半個盒子厚度，盒子才是「躺在」
+// 頂面上，不是嵌進去。x/z 偏一點、不要正中央，看起來才像隨手放的。
+export const DVD_CASE_REST_POSITION: [number, number, number] = [
+  0.05,
+  DVD_PLAYER_HEIGHT + TV_HEIGHT + DVD_CASE_DEPTH / 2,
+  0.08,
 ]
-export const DVD_CASE_LEAN_ANGLE = 0.3 // 弧度，繞 Z 軸傾斜——正值讓頂部往 -X 方向倒（往 TV 那邊）
+// [x, y, z]：x 轉 -90° 把盒子從站立轉成平躺（正面朝上）；y/z 加一點隨機感
+// 的偏轉角度，看起來像隨手放的，不是精準擺正。都是憑感覺抓的，看畫面調。
+export const DVD_CASE_REST_ROTATION: [number, number, number] = [-Math.PI / 2, 0.4, 0.15]
 
 export const CAMERA_POSITION: [number, number, number] = [0.55, 0.75, 1.9]
 export const CAMERA_TARGET: [number, number, number] = [0, 0.25, 0]
