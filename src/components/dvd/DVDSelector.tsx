@@ -53,6 +53,17 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
   const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
   const backdropRef = useRef<Mesh>(null)
 
+  // onInsertComplete 在 Experience 那邊每次 render 都是新的函式參照（它
+  // 本身又會觸發 setState），如果直接放進下面主要 effect 的 deps，插入
+  // 動畫完成、Experience re-render 產生新函式參照的當下，這個 effect 會
+  // 整個重跑一次——這時 insertingProjectId 還沒變，於是又建出第二條插入
+  // 時間軸，跑完又呼叫一次 onInsertComplete，alert 因此跳兩次。改用 ref
+  // 存最新版本，effect 本身不依賴它的參照是否變動。
+  const onInsertCompleteRef = useRef(onInsertComplete)
+  useEffect(() => {
+    onInsertCompleteRef.current = onInsertComplete
+  })
+
   useEffect(() => {
     // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
     // ——Experience 那邊選片時會把 OrbitControls 鎖住，鏡頭不會在這段期間
@@ -124,6 +135,19 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
         }
         hoveredRef.current[i] = true // 飛行途中不要再被閒置自轉的 useFrame 累加蓋掉
 
+        // 選片時 lookAt 鏡頭留下的朝向是「立著面向鏡頭」，但真的放進 tray
+        // 裡應該是躺平的（圓面朝上，跟真實 DVD 放進去的姿態一樣）。RingGeometry
+        // 預設法線朝 local +Z，繞 X 轉 -90° 會把它轉成朝 world +Y——跟
+        // DVD_CASE_REST_ROTATION 那次「x 放平躺角度」是同一個算法。
+        gsap.killTweensOf(group.rotation)
+        gsap.to(group.rotation, {
+          x: -Math.PI / 2,
+          y: 0,
+          z: 0,
+          duration: DVD_SELECTOR_FLY_DURATION,
+          ease: 'power2.out',
+        })
+
         const timeline = gsap.timeline()
         timeline.to(group.position, {
           x: DVD_PLAYER_TRAY_OPEN_POSITION[0],
@@ -133,7 +157,7 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
           ease: 'power2.out',
         })
         timeline.to(group.scale, { x: 1, y: 1, z: 1, duration: DVD_SELECTOR_FLY_DURATION, ease: 'power2.out' }, 0)
-        timeline.call(() => onInsertComplete())
+        timeline.call(() => onInsertCompleteRef.current())
         timeline.to(group.scale, { x: 0, y: 0, z: 0, duration: DVD_TRAY_ANIM_DURATION, ease: 'power2.in' })
         timeline.set(group, { visible: false })
       } else {
@@ -149,7 +173,7 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
         })
       }
     })
-  }, [isOpen, camera, insertingProjectId, onInsertComplete])
+  }, [isOpen, camera, insertingProjectId])
 
   // 閒置自轉——不受 hover 影響的碟片，每幀累加內層 group 的 rotation。
   // hover 中的碟片被排除在外（見下面 hoveredRef 判斷），讓它維持

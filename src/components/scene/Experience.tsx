@@ -99,6 +99,9 @@ export function Experience() {
     // 真的飛到 tray 上之後才觸發，不是選中的當下——不然 alert 一跳出來
     // 會擋住整段插入動畫還沒開始播放就先卡住。
     alert(`切換螢幕：${insertingProject?.title ?? ''}`)
+    // 插入流程真正結束了，把標記清掉——不然 isSceneBusy 會一直讀到
+    // insertingProject !== null，鏡頭鎖住、燈光暗著的狀態永遠不會解除。
+    setInsertingProject(null)
   }
 
   return (
