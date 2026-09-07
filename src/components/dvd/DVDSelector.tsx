@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
 import { Vector3 } from 'three'
-import type { Group } from 'three'
+import type { Group, Mesh } from 'three'
 import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import { DVD } from './DVD'
@@ -19,7 +20,16 @@ import {
 interface DVDSelectorProps {
   isOpen: boolean
   onSelect: (project: Project) => void
+  // 點擊碟片以外的地方（黑色背景）要能取消選片——這個 callback 就是拿來
+  // 關閉整個選片畫面用的，不選任何一片。
+  onClose: () => void
 }
+
+// 選片開啟時蓋在碟片後面的一大片背板，接住「點擊碟片以外的地方」的事件。
+// 位置比碟片扇形排列稍微遠一點，同一條鏡頭前方的射線上，這樣碟片本身
+// 擋在前面優先被打中，點不到碟片的地方射線才會落到這片背板上。
+const BACKDROP_DISTANCE_PAST_DISCS = 1
+const BACKDROP_SIZE = 30
 
 // 每片碟外面包兩層 group：
 // - 外層（discGroupRefs）用 ref 抓住直接命令 position/scale/lookAt——碟片
@@ -27,11 +37,12 @@ interface DVDSelectorProps {
 //   這個元件故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
 // - 內層（spinGroupRefs）負責閒置自轉，跟外層的位置/朝向動畫分開算，不會
 //   互相干擾：外層負責「面向鏡頭」，內層負責「原地慢慢轉」。
-export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
+export function DVDSelector({ isOpen, onSelect, onClose }: DVDSelectorProps) {
   const camera = useThree((state) => state.camera)
   const discGroupRefs = useRef<(Group | null)[]>([])
   const spinGroupRefs = useRef<(Group | null)[]>([])
   const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
+  const backdropRef = useRef<Mesh>(null)
 
   useEffect(() => {
     // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
@@ -41,6 +52,21 @@ export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
     camera.getWorldDirection(forward)
     const right = new Vector3().crossVectors(forward, camera.up).normalize()
     const center = camera.position.clone().add(forward.multiplyScalar(DVD_SELECTOR_DISTANCE))
+
+    if (backdropRef.current) {
+      if (isOpen) {
+        const backdropCenter = camera.position
+          .clone()
+          .add(forward.clone().multiplyScalar(DVD_SELECTOR_DISTANCE + BACKDROP_DISTANCE_PAST_DISCS))
+        backdropRef.current.position.copy(backdropCenter)
+        backdropRef.current.lookAt(camera.position)
+        backdropRef.current.visible = true
+      } else {
+        // visible = false 順便關掉這片的 raycast，關閉狀態下不會誤擋到
+        // 場景其他物件（TV、player）原本的點擊。
+        backdropRef.current.visible = false
+      }
+    }
 
     PROJECTS.forEach((_, i) => {
       const group = discGroupRefs.current[i]
@@ -125,8 +151,20 @@ export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
     }
   }
 
+  const handleBackdropClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation()
+    onClose()
+  }
+
   return (
     <>
+      {/* 預設不可見（visible=false 同時關掉 raycast），只有選片開啟時才
+          出現在碟片後面接住其他點擊。 */}
+      <mesh ref={backdropRef} visible={false} onClick={handleBackdropClick}>
+        <planeGeometry args={[BACKDROP_SIZE, BACKDROP_SIZE]} />
+        <meshBasicMaterial color="#000000" />
+      </mesh>
+
       {PROJECTS.map((project, i) => (
         <group
           key={project.id}

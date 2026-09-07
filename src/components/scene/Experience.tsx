@@ -97,7 +97,11 @@ export function Experience() {
       <DVDPlayer />
       <RetroTV />
       <DVDCase isOpen={isDvdSelectorOpen} onToggle={() => setIsDvdSelectorOpen((v) => !v)} />
-      <DVDSelector isOpen={isDvdSelectorOpen} onSelect={handleSelectProject} />
+      <DVDSelector
+        isOpen={isDvdSelectorOpen}
+        onSelect={handleSelectProject}
+        onClose={() => setIsDvdSelectorOpen(false)}
+      />
 
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[6, 6]} />
