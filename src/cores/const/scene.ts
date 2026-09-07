@@ -37,9 +37,12 @@ export const DVD_CASE_REST_POSITION: [number, number, number] = [
   DVD_PLAYER_HEIGHT + TV_HEIGHT + DVD_CASE_DEPTH / 2,
   0.08,
 ]
-// [x, y, z]：x 轉 -90° 把盒子從站立轉成平躺（正面朝上）；y/z 加一點隨機感
-// 的偏轉角度，看起來像隨手放的，不是精準擺正。都是憑感覺抓的，看畫面調。
-export const DVD_CASE_REST_ROTATION: [number, number, number] = [-Math.PI / 2, 0.4, 0.15]
+// [x, y, z]：Euler 角是依序套用的，每一節繞的是「上一步轉完後的新軸」。
+// x 先轉 -90° 把盒子從站立轉成平躺（正面朝上）——轉完之後，物件原本的
+// Z 軸才是現在指向垂直方向的那個軸，所以「隨性轉一個角度」要放在 z，
+// 不是 y（y 轉完之後其實是水平朝前後的軸，轉它會把盒子掀起來，插進 TV
+// 裡——這是上一版插進電視裡的真正原因）。角度憑感覺抓，看畫面調。
+export const DVD_CASE_REST_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0.4]
 
 export const CAMERA_POSITION: [number, number, number] = [0.55, 0.75, 1.9]
 export const CAMERA_TARGET: [number, number, number] = [0, 0.25, 0]

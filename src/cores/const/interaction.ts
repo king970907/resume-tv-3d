@@ -20,3 +20,8 @@ export const DVD_SELECTOR_SCALE = 2 // 飛到選片位置後放大幾倍，原�
 export const DVD_SELECTOR_FLY_DURATION = 0.6 // 秒，飛出/收回的動畫時間
 export const SCENE_DIM_FACTOR = 0.03 // 選片時場景燈光乘上這個係數（趨近全黑但留一點層次）
 export const SCENE_DIM_DURATION = 0.4 // 秒，燈光暗下/恢復的時間
+
+// 選片畫面裡碟片的閒置自轉——hover 時停下來、轉正對鏡頭。
+export const DVD_SELECTOR_SPIN_SPEED_X = 0.4 // 弧度/秒
+export const DVD_SELECTOR_SPIN_SPEED_Y = 0.6 // 弧度/秒
+export const DVD_SELECTOR_HOVER_SNAP_DURATION = 0.25 // 秒，hover 時轉正對鏡頭的時間

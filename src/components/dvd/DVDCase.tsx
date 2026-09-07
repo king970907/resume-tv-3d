@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
 import type { Group } from 'three'
@@ -14,9 +14,11 @@ import { PROJECTS } from '@/data/projects'
 import { DVD } from './DVD'
 
 interface DVDCaseProps {
-  // 開闔狀態要讓 Experience.tsx 知道——碟片真正的選片畫面（DVDSelector）
-  // 是獨立在盒子姿態之外的世界座標飛出來的，不能只在這個元件內部處理。
-  onOpenChange?: (isOpen: boolean) => void
+  // 受控元件——開闔狀態由 Experience.tsx 統一管理（跟 DVDSelector 共用
+  // 同一個布林值），這樣選片畫面收起來的時候，盒子會自動跟著關，不用
+  // 額外同步兩個各自獨立的開關狀態。
+  isOpen: boolean
+  onToggle: () => void
 }
 
 // 封底這個 box 中心在 z = -DEPTH/4、半厚度 DEPTH/4，所以前面那個面（朝向
@@ -26,9 +28,19 @@ const DISC_BASE_Z = 0.002
 const DISC_Z_STEP = 0.002 // 每片往前疊一點點，避免完全共平面 z-fighting
 const DISC_X_SPACING = 0.05 // 沿寬度方向扇開一點，讓每片碟的中心點分開，方便個別點擊
 
-export function DVDCase({ onOpenChange }: DVDCaseProps) {
+export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
   const coverPivotRef = useRef<Group>(null)
-  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const pivot = coverPivotRef.current
+    if (!pivot) return
+    gsap.killTweensOf(pivot.rotation)
+    gsap.to(pivot.rotation, {
+      y: isOpen ? DVD_CASE_OPEN_ANGLE : 0,
+      duration: DVD_CASE_OPEN_DURATION,
+      ease: 'power2.out',
+    })
+  }, [isOpen])
 
   useEffect(() => {
     const pivot = coverPivotRef.current
@@ -39,18 +51,7 @@ export function DVDCase({ onOpenChange }: DVDCaseProps) {
 
   const handleToggleOpen = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
-    const pivot = coverPivotRef.current
-    if (!pivot) return
-
-    gsap.killTweensOf(pivot.rotation)
-    const next = !isOpen
-    setIsOpen(next)
-    onOpenChange?.(next)
-    gsap.to(pivot.rotation, {
-      y: next ? DVD_CASE_OPEN_ANGLE : 0,
-      duration: DVD_CASE_OPEN_DURATION,
-      ease: 'power2.out',
-    })
+    onToggle()
   }
 
   return (

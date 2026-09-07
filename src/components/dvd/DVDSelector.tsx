@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import { Vector3 } from 'three'
 import type { Group } from 'three'
@@ -10,7 +10,10 @@ import {
   DVD_SELECTOR_ARC_SPACING,
   DVD_SELECTOR_DISTANCE,
   DVD_SELECTOR_FLY_DURATION,
+  DVD_SELECTOR_HOVER_SNAP_DURATION,
   DVD_SELECTOR_SCALE,
+  DVD_SELECTOR_SPIN_SPEED_X,
+  DVD_SELECTOR_SPIN_SPEED_Y,
 } from '@/cores/const/interaction'
 
 interface DVDSelectorProps {
@@ -18,12 +21,17 @@ interface DVDSelectorProps {
   onSelect: (project: Project) => void
 }
 
-// 每片碟外面包一層 group，用 ref 抓住直接命令 position/scale——碟片要飛的
-// 目標是「鏡頭前方」這個世界座標，跟盒子本身的姿態完全無關，所以這個元件
-// 故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
+// 每片碟外面包兩層 group：
+// - 外層（discGroupRefs）用 ref 抓住直接命令 position/scale/lookAt——碟片
+//   要飛的目標是「鏡頭前方」這個世界座標，跟盒子本身的姿態完全無關，所以
+//   這個元件故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
+// - 內層（spinGroupRefs）負責閒置自轉，跟外層的位置/朝向動畫分開算，不會
+//   互相干擾：外層負責「面向鏡頭」，內層負責「原地慢慢轉」。
 export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
   const camera = useThree((state) => state.camera)
   const discGroupRefs = useRef<(Group | null)[]>([])
+  const spinGroupRefs = useRef<(Group | null)[]>([])
+  const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
 
   useEffect(() => {
     // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
@@ -45,8 +53,6 @@ export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
         const offset = (i - (PROJECTS.length - 1) / 2) * DVD_SELECTOR_ARC_SPACING
         const target = center.clone().add(right.clone().multiplyScalar(offset))
 
-        // 面朝鏡頭：碟片沒有正反面材質差異（目前還是同一種灰色），朝向
-        // 哪一面對著鏡頭現在看不出差別，先用 lookAt 對齊即可。
         group.lookAt(camera.position)
         group.visible = true
 
@@ -87,6 +93,38 @@ export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
     })
   }, [isOpen, camera])
 
+  // 閒置自轉——不受 hover 影響的碟片，每幀累加內層 group 的 rotation。
+  // hover 中的碟片被排除在外（見下面 hoveredRef 判斷），讓它維持
+  // handleHoverChange 轉正的角度，不會被這裡的累加蓋掉。
+  useFrame((_, delta) => {
+    if (!isOpen) return
+    spinGroupRefs.current.forEach((group, i) => {
+      if (!group || hoveredRef.current[i]) return
+      group.rotation.x += delta * DVD_SELECTOR_SPIN_SPEED_X
+      group.rotation.y += delta * DVD_SELECTOR_SPIN_SPEED_Y
+    })
+  })
+
+  const handleHoverChange = (i: number) => (hovering: boolean) => {
+    hoveredRef.current[i] = hovering
+    const spinGroup = spinGroupRefs.current[i]
+    if (!spinGroup) return
+
+    // hover 時停止累加、轉正對鏡頭（回到 rotation 0，因為外層 group 已經
+    // lookAt 鏡頭了，內層歸零角度疊上去就是「正面朝向鏡頭」）；放開游標
+    // 不用轉回去，直接從目前角度繼續累加即可。
+    if (hovering) {
+      gsap.killTweensOf(spinGroup.rotation)
+      gsap.to(spinGroup.rotation, {
+        x: 0,
+        y: 0,
+        z: 0,
+        duration: DVD_SELECTOR_HOVER_SNAP_DURATION,
+        ease: 'power2.out',
+      })
+    }
+  }
+
   return (
     <>
       {PROJECTS.map((project, i) => (
@@ -96,7 +134,9 @@ export function DVDSelector({ isOpen, onSelect }: DVDSelectorProps) {
           visible={false}
           scale={0}
         >
-          <DVD project={project} onSelect={onSelect} />
+          <group ref={(el) => { spinGroupRefs.current[i] = el }}>
+            <DVD project={project} onSelect={onSelect} onHoverChange={handleHoverChange(i)} />
+          </group>
         </group>
       ))}
     </>
