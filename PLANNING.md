@@ -77,7 +77,8 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - [x] 碟片閒置自轉 + hover 轉正對鏡頭；碟片幾何體改成有洞（RingGeometry x2 + 開口 CylinderGeometry），正反面材質分開
 - [x] `DVDCase` 改成受控元件（`isOpen`/`onToggle` 由 `Experience` 統一管），選片關閉時盒子自動跟著關
 - [x] 點黑色背景（碟片以外的地方）也能關閉選片畫面（`DVDSelector` 內的隱形背板）
-- [ ] 選片後「插入 player」動畫 + 串接 TV 換內容邏輯 + 把作品數量接進旋鈕的 `pageCount`（Step 3 後半）
+- [ ] 選片後「插入 player」動畫（碟片飛進 DVD player、tray 收回）（Step 3 後半）
+- [ ] `alert` 佔位換成真的「TV 換內容」邏輯——依賴螢幕貼圖系統（Phase 2）先做完
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
 - [ ] 視覺收尾：HDRI 環境、bloom 後製、材質細節
@@ -99,4 +100,6 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 ## 下一步
 
-Step 3 後半：選片後（點碟片）觸發插入 player 的動畫、串接 TV 換內容、旋鈕 `pageCount` 接上作品數量。
+Step 3 後半：選片後把碟片飛進 DVD player 的動畫（tray 收回）。做完這步 Step 3 就算全部收尾，接著會進 Phase 2（螢幕貼圖系統），`alert` 佔位到時候一起換掉。
+
+（旋鈕的 `pageCount` 不用等——選片是直接點碟片，旋鈕全程跟 DVD 無關，只管 4 個固定個人頁面，這條已經做完了，之前寫進「下一步」是規劃殘留，拿掉了。）
