@@ -62,6 +62,8 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 選片期間 `OrbitControls` 會被鎖住（`controls.enabled = false`）——`DVDSelector` 是用「開盒當下」鏡頭的位置/朝向算一次扇形排列，鏡頭如果中途被轉走，排列就對不上，所以整段選片畫面鏡頭必須固定不動，跟旋鈕拖曳期間鎖鏡頭是同一招。
 
+點黑色背景關閉選片：`DVDSelector` 裡有一片平常不可見的全螢幕背板，跟碟片同一條鏡頭前方的射線、擺在碟片扇形的後面，只有選片開啟時才會 `visible = true`（同時打開它的 raycast——three.js 物件 `visible = false` 會連 raycast 也一起關掉，關閉時不會誤擋到場景其他物件的點擊）。點碟片以外的地方，射線會穿過扇形之間的空隙打中這片背板，觸發跟選片/點盒子一樣的關閉邏輯。
+
 ## 目前進度
 
 - [x] Phase 0：Vite + React 19 + R3F scaffold，Canvas/燈光/OrbitControls 跑通
@@ -74,6 +76,7 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - [x] 選片畫面：碟片飛到鏡頭前 + 場景燈光暗下去（`DVDSelector`，見上方架構決策）
 - [x] 碟片閒置自轉 + hover 轉正對鏡頭；碟片幾何體改成有洞（RingGeometry x2 + 開口 CylinderGeometry），正反面材質分開
 - [x] `DVDCase` 改成受控元件（`isOpen`/`onToggle` 由 `Experience` 統一管），選片關閉時盒子自動跟著關
+- [x] 點黑色背景（碟片以外的地方）也能關閉選片畫面（`DVDSelector` 內的隱形背板）
 - [ ] 選片後「插入 player」動畫 + 串接 TV 換內容邏輯 + 把作品數量接進旋鈕的 `pageCount`（Step 3 後半）
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
