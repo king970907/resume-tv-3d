@@ -64,6 +64,14 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 點黑色背景關閉選片：`DVDSelector` 裡有一片平常不可見的全螢幕背板，跟碟片同一條鏡頭前方的射線、擺在碟片扇形的後面，只有選片開啟時才會 `visible = true`（同時打開它的 raycast——three.js 物件 `visible = false` 會連 raycast 也一起關掉，關閉時不會誤擋到場景其他物件的點擊）。點碟片以外的地方，射線會穿過扇形之間的空隙打中這片背板，觸發跟選片/點盒子一樣的關閉邏輯。
 
+### 選中的碟片插入 player：目標位置用常數算，不用跨元件拿 ref
+
+點選碟片後，選中的那片要飛到 `DVD_PLAYER_TRAY_OPEN_POSITION`（`scene.ts` 裡算好的固定世界座標——tray 開啟時停在哪裡是純幾何算出來的，不用真的去抓 `DVDPlayer` 內部 tray 的即時 ref）。`DVDPlayer` 也比照 `DVDCase` 改成受控元件（`isOpen`/`onToggle` 交給 `Experience`），這樣選片流程才能命令它開闔，不是只能靠使用者手動點。
+
+`DVDSelector` 原本「選中/沒選中都縮到 0」的邏輯多了第三條分支：碟片的 `project.id` 對到 `insertingProjectId` 的那一片，改成飛到 tray 位置、縮到真實大小（不是縮到 0），抵達時呼叫 `onInsertComplete`（`Experience` 收到後把 tray 收回去），接著自己再用一段跟 tray 收回差不多長的時間（`DVD_TRAY_ANIM_DURATION`）縮到 0、隱藏——不是精準同步兩個元件的動畫時間軸，只是抓同一個時間常數，視覺上兜得起來就好。
+
+`alert` 佔位的時機從「選中的當下」改成「插入動畫完成的當下」（`onInsertComplete` 裡）——`alert()` 會卡住主執行緒，選中當下就跳出來的話，飛行動畫根本還沒開始播放就被凍住了。
+
 ## 目前進度
 
 - [x] Phase 0：Vite + React 19 + R3F scaffold，Canvas/燈光/OrbitControls 跑通
@@ -77,7 +85,7 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - [x] 碟片閒置自轉 + hover 轉正對鏡頭；碟片幾何體改成有洞（RingGeometry x2 + 開口 CylinderGeometry），正反面材質分開
 - [x] `DVDCase` 改成受控元件（`isOpen`/`onToggle` 由 `Experience` 統一管），選片關閉時盒子自動跟著關
 - [x] 點黑色背景（碟片以外的地方）也能關閉選片畫面（`DVDSelector` 內的隱形背板）
-- [ ] 選片後「插入 player」動畫（碟片飛進 DVD player、tray 收回）（Step 3 後半）
+- [x] 選片後「插入 player」動畫——`DVDPlayer` 也改受控元件，選中的碟片飛到 `DVD_PLAYER_TRAY_OPEN_POSITION`、縮到真實大小，抵達後收 tray、隨後隱藏（Step 3 完整收尾）
 - [ ] `alert` 佔位換成真的「TV 換內容」邏輯——依賴螢幕貼圖系統（Phase 2）先做完
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
@@ -100,6 +108,4 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 ## 下一步
 
-Step 3 後半：選片後把碟片飛進 DVD player 的動畫（tray 收回）。做完這步 Step 3 就算全部收尾，接著會進 Phase 2（螢幕貼圖系統），`alert` 佔位到時候一起換掉。
-
-（旋鈕的 `pageCount` 不用等——選片是直接點碟片，旋鈕全程跟 DVD 無關，只管 4 個固定個人頁面，這條已經做完了，之前寫進「下一步」是規劃殘留，拿掉了。）
+**Step 3 全部收尾了**（開闔、選片、飛出、hover、關閉、插入 player，都做完並驗證過）。接下來進 **Phase 2：螢幕貼圖系統**——頻道/項目的預覽貼圖、切換邏輯，做完之後把目前 `alert` 佔位的地方換成真正的「TV 換內容」。
