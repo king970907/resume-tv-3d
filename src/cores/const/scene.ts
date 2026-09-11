@@ -1,8 +1,6 @@
 // 1 unit = 1 公尺。真實世界參考尺寸（公分）× 1.2（展示尺度加成）換算來的。
 // 之後要整組縮放的話保持這個比例——見 CLAUDE.md。
 
-import { DVD_TRAY_OPEN_DISTANCE } from './interaction'
-
 export const TV_WIDTH = 0.54
 export const TV_HEIGHT = 0.48
 export const TV_DEPTH = 0.54
@@ -29,23 +27,6 @@ export const DVD_THICKNESS = 0.0014
 // TV 疊在 player 頂面上；player 貼地（y = 0）。
 export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0]
 export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0]
-
-// Tray pivot 收/開時的局部座標，抽成常數而不是留在 DVDPlayer.tsx 內部——
-// 「選片後碟片飛進 tray」這個流程需要 DVDSelector/Experience 知道 tray
-// 打開時到底停在哪個世界座標，直接 import 這裡算好的，不用重新猜測或
-// 跨元件伸手進 DVDPlayer 內部拿 ref。
-export const DVD_PLAYER_TRAY_X = 0.15
-export const DVD_PLAYER_TRAY_Y = DVD_PLAYER_HEIGHT * 0.3
-export const DVD_PLAYER_TRAY_CLOSED_Z = DVD_PLAYER_DEPTH / 3.5
-export const DVD_PLAYER_TRAY_OPEN_Z = DVD_PLAYER_TRAY_CLOSED_Z + DVD_TRAY_OPEN_DISTANCE
-
-// Tray 完全打開時的世界座標——用加法算而不是寫死，之後 DVD_PLAYER_POSITION
-// 如果改了（例如 player 挪位置），這裡不用跟著手動改。
-export const DVD_PLAYER_TRAY_OPEN_POSITION: [number, number, number] = [
-  DVD_PLAYER_POSITION[0] + DVD_PLAYER_TRAY_X,
-  DVD_PLAYER_POSITION[1] + DVD_PLAYER_TRAY_Y,
-  DVD_PLAYER_POSITION[2] + DVD_PLAYER_TRAY_OPEN_Z,
-]
 
 // DVD 盒改成平放在 TV 頂面上，隨性斜放（不再是站著靠在 TV 側邊那套姿態，
 // 那套「底部支點、傾角算物理」的設計已經拿掉）。TV 頂面世界座標 y =

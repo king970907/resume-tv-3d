@@ -7,7 +7,6 @@ import type { Group, Mesh } from 'three'
 import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import { DVD } from './DVD'
-import { DVD_PLAYER_TRAY_OPEN_POSITION } from '@/cores/const/scene'
 import {
   DVD_SELECTOR_ARC_SPACING,
   DVD_SELECTOR_DISTANCE,
@@ -16,7 +15,6 @@ import {
   DVD_SELECTOR_SCALE,
   DVD_SELECTOR_SPIN_SPEED_X,
   DVD_SELECTOR_SPIN_SPEED_Y,
-  DVD_TRAY_ANIM_DURATION,
 } from '@/cores/const/interaction'
 
 interface DVDSelectorProps {
@@ -25,13 +23,6 @@ interface DVDSelectorProps {
   // 點擊碟片以外的地方（黑色背景）要能取消選片——這個 callback 就是拿來
   // 關閉整個選片畫面用的，不選任何一片。
   onClose: () => void
-  // 正在被插入 player 的項目 id——這片碟片要飛去 player tray 的位置、縮回
-  // 接近真實大小，不是跟其他沒被選中的片一樣縮到 0 消失。null 代表沒有
-  // 任何一片正在插入。
-  insertingProjectId: string | null
-  // 插入動畫（飛到 tray）完成的當下呼叫——Experience 用這個時機把 tray
-  // 收回去。碟片自己會在收回動畫差不多跑完的時間點，接著淡出隱藏。
-  onInsertComplete: () => void
 }
 
 // 選片開啟時蓋在碟片後面的一大片背板，接住「點擊碟片以外的地方」的事件。
@@ -46,23 +37,12 @@ const BACKDROP_SIZE = 30
 //   這個元件故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
 // - 內層（spinGroupRefs）負責閒置自轉，跟外層的位置/朝向動畫分開算，不會
 //   互相干擾：外層負責「面向鏡頭」，內層負責「原地慢慢轉」。
-export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onInsertComplete }: DVDSelectorProps) {
+export function DVDSelector({ isOpen, onSelect, onClose }: DVDSelectorProps) {
   const camera = useThree((state) => state.camera)
   const discGroupRefs = useRef<(Group | null)[]>([])
   const spinGroupRefs = useRef<(Group | null)[]>([])
   const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
   const backdropRef = useRef<Mesh>(null)
-
-  // onInsertComplete 在 Experience 那邊每次 render 都是新的函式參照（它
-  // 本身又會觸發 setState），如果直接放進下面主要 effect 的 deps，插入
-  // 動畫完成、Experience re-render 產生新函式參照的當下，這個 effect 會
-  // 整個重跑一次——這時 insertingProjectId 還沒變，於是又建出第二條插入
-  // 時間軸，跑完又呼叫一次 onInsertComplete，alert 因此跳兩次。改用 ref
-  // 存最新版本，effect 本身不依賴它的參照是否變動。
-  const onInsertCompleteRef = useRef(onInsertComplete)
-  useEffect(() => {
-    onInsertCompleteRef.current = onInsertComplete
-  })
 
   useEffect(() => {
     // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
@@ -88,7 +68,7 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
       }
     }
 
-    PROJECTS.forEach((project, i) => {
+    PROJECTS.forEach((_, i) => {
       const group = discGroupRefs.current[i]
       if (!group) return
 
@@ -124,42 +104,6 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
             ease: 'back.out(1.4)',
           },
         )
-      } else if (project.id === insertingProjectId) {
-        // 這片是被選中、要插進 player 的那片——單獨走一條時間軸：飛到
-        // tray 位置＋縮回接近真實大小 → 通知 Experience 收 tray → 跟著
-        // tray 收回的時間再淡出隱藏（不是精準同步，時間抓一致就好）。
-        const spinGroup = spinGroupRefs.current[i]
-        if (spinGroup) {
-          gsap.killTweensOf(spinGroup.rotation)
-          gsap.to(spinGroup.rotation, { x: 0, y: 0, z: 0, duration: DVD_SELECTOR_HOVER_SNAP_DURATION })
-        }
-        hoveredRef.current[i] = true // 飛行途中不要再被閒置自轉的 useFrame 累加蓋掉
-
-        // 選片時 lookAt 鏡頭留下的朝向是「立著面向鏡頭」，但真的放進 tray
-        // 裡應該是躺平的（圓面朝上，跟真實 DVD 放進去的姿態一樣）。RingGeometry
-        // 預設法線朝 local +Z，繞 X 轉 -90° 會把它轉成朝 world +Y——跟
-        // DVD_CASE_REST_ROTATION 那次「x 放平躺角度」是同一個算法。
-        gsap.killTweensOf(group.rotation)
-        gsap.to(group.rotation, {
-          x: -Math.PI / 2,
-          y: 0,
-          z: 0,
-          duration: DVD_SELECTOR_FLY_DURATION,
-          ease: 'power2.out',
-        })
-
-        const timeline = gsap.timeline()
-        timeline.to(group.position, {
-          x: DVD_PLAYER_TRAY_OPEN_POSITION[0],
-          y: DVD_PLAYER_TRAY_OPEN_POSITION[1],
-          z: DVD_PLAYER_TRAY_OPEN_POSITION[2],
-          duration: DVD_SELECTOR_FLY_DURATION,
-          ease: 'power2.out',
-        })
-        timeline.to(group.scale, { x: 1, y: 1, z: 1, duration: DVD_SELECTOR_FLY_DURATION, ease: 'power2.out' }, 0)
-        timeline.call(() => onInsertCompleteRef.current())
-        timeline.to(group.scale, { x: 0, y: 0, z: 0, duration: DVD_TRAY_ANIM_DURATION, ease: 'power2.in' })
-        timeline.set(group, { visible: false })
       } else {
         gsap.to(group.scale, {
           x: 0,
@@ -173,7 +117,7 @@ export function DVDSelector({ isOpen, onSelect, onClose, insertingProjectId, onI
         })
       }
     })
-  }, [isOpen, camera, insertingProjectId])
+  }, [isOpen, camera])
 
   // 閒置自轉——不受 hover 影響的碟片，每幀累加內層 group 的 rotation。
   // hover 中的碟片被排除在外（見下面 hoveredRef 判斷），讓它維持

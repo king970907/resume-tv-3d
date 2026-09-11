@@ -64,19 +64,6 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 點黑色背景關閉選片：`DVDSelector` 裡有一片平常不可見的全螢幕背板，跟碟片同一條鏡頭前方的射線、擺在碟片扇形的後面，只有選片開啟時才會 `visible = true`（同時打開它的 raycast——three.js 物件 `visible = false` 會連 raycast 也一起關掉，關閉時不會誤擋到場景其他物件的點擊）。點碟片以外的地方，射線會穿過扇形之間的空隙打中這片背板，觸發跟選片/點盒子一樣的關閉邏輯。
 
-### 選中的碟片插入 player：目標位置用常數算，不用跨元件拿 ref
-
-點選碟片後，選中的那片要飛到 `DVD_PLAYER_TRAY_OPEN_POSITION`（`scene.ts` 裡算好的固定世界座標——tray 開啟時停在哪裡是純幾何算出來的，不用真的去抓 `DVDPlayer` 內部 tray 的即時 ref）。`DVDPlayer` 也比照 `DVDCase` 改成受控元件（`isOpen`/`onToggle` 交給 `Experience`），這樣選片流程才能命令它開闔，不是只能靠使用者手動點。
-
-`DVDSelector` 原本「選中/沒選中都縮到 0」的邏輯多了第三條分支：碟片的 `project.id` 對到 `insertingProjectId` 的那一片，改成飛到 tray 位置、縮到真實大小（不是縮到 0），抵達時呼叫 `onInsertComplete`（`Experience` 收到後把 tray 收回去），接著自己再用一段跟 tray 收回差不多長的時間（`DVD_TRAY_ANIM_DURATION`）縮到 0、隱藏——不是精準同步兩個元件的動畫時間軸，只是抓同一個時間常數，視覺上兜得起來就好。
-
-`alert` 佔位的時機從「選中的當下」改成「插入動畫完成的當下」（`onInsertComplete` 裡）——`alert()` 會卡住主執行緒，選中當下就跳出來的話，飛行動畫根本還沒開始播放就被凍住了。
-
-**上線後修的兩個問題：**
-
-1. **飛進 tray 時是站著的**——插入分支原本只 tween `position`/`scale`，沒動 `rotation`，碟片維持著選片時「面向鏡頭」的姿態飛過去。補一段獨立的 rotation tween，轉成跟 `DVD_CASE_REST_ROTATION` 同一招（繞 X 轉 `-Math.PI / 2`，把 RingGeometry 的法線從 local +Z 轉到 world +Y），到 tray 時就是躺平、圓面朝上。
-2. **切換螢幕的 alert 跳兩次**——根因是主要 `useEffect` 的 deps 裡放了 `onInsertComplete`。這個 callback 在 `Experience` 端每次 render 都是新函式參照，而它自己又會 `setState`（收 tray）觸發 `Experience` re-render；插入動畫跑完呼叫一次 `onInsertComplete` 後，新的函式參照傳進來，讓整個 effect 重跑一次——這時 `insertingProjectId` 還沒變，於是又建出第二條插入時間軸，跑完再呼叫一次。改用 `useRef` 存最新版本的 callback，effect 本身不依賴它的參照。順便修了一個連帶的：`handleInsertComplete` 一直沒把 `insertingProject` 清空，導致 `isSceneBusy` 插入完成後永遠是 `true`，鏡頭鎖住、燈光暗著解不開。
-
 ## 目前進度
 
 - [x] Phase 0：Vite + React 19 + R3F scaffold，Canvas/燈光/OrbitControls 跑通
@@ -90,7 +77,7 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - [x] 碟片閒置自轉 + hover 轉正對鏡頭；碟片幾何體改成有洞（RingGeometry x2 + 開口 CylinderGeometry），正反面材質分開
 - [x] `DVDCase` 改成受控元件（`isOpen`/`onToggle` 由 `Experience` 統一管），選片關閉時盒子自動跟著關
 - [x] 點黑色背景（碟片以外的地方）也能關閉選片畫面（`DVDSelector` 內的隱形背板）
-- [x] 選片後「插入 player」動畫——`DVDPlayer` 也改受控元件，選中的碟片飛到 `DVD_PLAYER_TRAY_OPEN_POSITION`、縮到真實大小，抵達後收 tray、隨後隱藏（Step 3 完整收尾）
+- [ ] 選片後「插入 player」動畫（碟片飛進 DVD player、tray 收回）（Step 3 後半）
 - [ ] `alert` 佔位換成真的「TV 換內容」邏輯——依賴螢幕貼圖系統（Phase 2）先做完
 - [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
 - [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
@@ -109,9 +96,10 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - **有個跟我們寫的程式碼無關的既有 console 警告**（`useEffect` deps array 長度變化），用 `git stash` + 切回最初 scaffold commit 驗證過，連空場景都會出現——是 `@react-three/fiber` 9.7.0（目前最新穩定版）+ React 19 StrictMode 的相容性小毛病，不影響功能，先不管它
 - **RingGeometry 中間是真的洞，沒有 geometry**——點擊測試碟片時，點在正中央（洞附近）射線會直接穿過去，什麼都打不到。看起來像「點擊沒反應」，其實是瞄準的地方本來就沒東西可點，要點在圓環實體的部分
 - **自動化/背景分頁的瀏覽器分頁會把 rAF 節流**，GSAP tween 沒有停，只是被拖到極慢的速度跑——不要看動畫「卡住不動」幾秒就斷定邏輯錯了，先加 `onUpdate` log 確認數值有沒有在變，真的在變就是節流，不是 bug。這次選片關閉動畫一度看起來完全沒反應，等了十幾秒才看到它其實一路在跑
-- **`useEffect` 的 deps 裡放一個「自己會觸發 setState」的 callback 時要小心無限重跑**——如果那個 callback 在呼叫端（父元件）沒用 `useCallback` 包住，每次 render 都是新函式參照；一旦這個 callback 執行時又觸發父層 setState，就會造成「effect 跑 → callback 觸發 setState → 父層 re-render → 新函式參照 → effect 又跑一次」的迴圈或重複觸發。DVD 插入 player 那次的 `alert` 跳兩次就是這樣：`onInsertComplete` 在 deps 裡，插入完成呼叫它、觸發 `Experience` re-render，effect 因為 deps 變了又重跑，重新建了一條插入時間軸。修法是用 `useRef` 存最新版本的 callback，effect 本身不把它放進 deps
-- **這個開發環境的 Browser pane，`document.visibilityState` 永遠回報 `"hidden"`**（用 `javascript_tool` 查證過，前景化分頁、開全新分頁都一樣）。瀏覽器對隱藏分頁的 rAF 節流力道不固定，同一套邏輯有時候拖慢跑完、有時候看起來完全卡死（`onUpdate` 一次都不觸發）。這是工具本身的限制，不是能修的程式碼問題——動畫「卡住不動」不能當作邏輯錯誤的證據，優先看 state 有沒有正確流轉（console log 證明 handler/effect 有跑到），視覺上跑完與否在這個環境裡本來就不穩定，真的要看動畫效果得交給使用者在自己的瀏覽器裡確認。這次還碰到更直接的證據：`scroll` 動作直接報錯「Browser pane is currently hidden. The page is not rendered while it is not displayed」——面板整個沒顯示時，rAF 基本上是停的，`screenshot` 這類動作似乎會強制補一幀，可以拿來當「逼它跑一下」的手段
+- **這個開發環境的 Browser pane，`document.visibilityState` 永遠回報 `"hidden"`**（用 `javascript_tool` 查證過，前景化分頁、開全新分頁都一樣）。瀏覽器對隱藏分頁的 rAF 節流力道不固定，同一套邏輯有時候拖慢跑完、有時候看起來完全卡死（`onUpdate` 一次都不觸發）。這是工具本身的限制，不是能修的程式碼問題——動畫「卡住不動」不能當作邏輯錯誤的證據，優先看 state 有沒有正確流轉（console log 證明 handler/effect 有跑到），視覺上跑完與否在這個環境裡本來就不穩定，真的要看動畫效果得交給使用者在自己的瀏覽器裡確認
 
 ## 下一步
 
-**Step 3 全部收尾了**（開闔、選片、飛出、hover、關閉、插入 player，都做完並驗證過）。接下來進 **Phase 2：螢幕貼圖系統**——頻道/項目的預覽貼圖、切換邏輯，做完之後把目前 `alert` 佔位的地方換成真正的「TV 換內容」。
+Step 3 後半：選片後把碟片飛進 DVD player 的動畫（tray 收回）。做完這步 Step 3 就算全部收尾，接著會進 Phase 2（螢幕貼圖系統），`alert` 佔位到時候一起換掉。
+
+（旋鈕的 `pageCount` 不用等——選片是直接點碟片，旋鈕全程跟 DVD 無關，只管 4 個固定個人頁面，這條已經做完了，之前寫進「下一步」是規劃殘留，拿掉了。）
