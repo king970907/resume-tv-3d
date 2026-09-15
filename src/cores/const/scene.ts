@@ -1,18 +1,13 @@
 // 1 unit = 1 公尺。真實世界參考尺寸（公分）× 1.2（展示尺度加成）換算來的。
 // 之後要整組縮放的話保持這個比例——見 CLAUDE.md。
 
-export const TV_WIDTH = 0.54
+// TV_WIDTH/TV_DEPTH、DVD_PLAYER_WIDTH/DEPTH/LIP_* 這些原本是 RoundedBox
+// placeholder 用的尺寸常數——TV 跟 DVD player 都換成 Blender 匯出的真實
+// geometry 後，實際尺寸已經內建在 .glb 檔案裡，這些常數沒有地方在用了，
+// 拿掉避免誤導（以為改這裡會影響模型大小，實際上不會）。
 export const TV_HEIGHT = 0.48
-export const TV_DEPTH = 0.54
 
-export const DVD_PLAYER_WIDTH = 0.8
 export const DVD_PLAYER_HEIGHT = 0.06
-export const DVD_PLAYER_DEPTH = 0.54
-
-// 前緣凸起，跨整個前臉——真實的 AV 設備機殼不是均勻一塊板子，前面板通常會
-// 比扁平的頂面稍微凸出一點。疊在主體上面，跟主體的前面切齊。
-export const DVD_PLAYER_LIP_HEIGHT = 0.025
-export const DVD_PLAYER_LIP_DEPTH = 0.05
 
 // 改回真實 DVD 盒比例（寬 x 高的正面朝鏡頭，深度是最薄的那個軸）——寬深
 // 之前被手動對調過，導致盒子太窄、碟片正面朝鏡頭時完全塞不進去，只能側面
@@ -32,7 +27,13 @@ export const DVD_THICKNESS = 0.0014
 // 移回 DVD player 深度的中間（機身深度約0.28m，DVD_PLAYER_DEPTH=0.54m，
 // 偏移量 = 機身深度/2 抵銷掉往後偏的量）。
 export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0.14]
-export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0]
+
+// z 軸偏移道理跟 TV_POSITION 一樣：DVD player 的 Blender 模型原點也在
+// 「前臉底部中心」，機身往+z方向延伸，套用同一個180°翻轉後機身變成往
+// -z 延伸（實測機身世界座標 z 落在 0 ~ -0.34，不是置中在 0）。偏移量是
+// 機身深度(0.34m)的一半，讓機身重新置中在 z=0——這個「置中在0」的基準
+// 是 TV_POSITION.z 算式本來就假設好的，兩邊要對得上。
+export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0.17]
 
 // DVD 盒改成平放在 TV 頂面上，隨性斜放（不再是站著靠在 TV 側邊那套姿態，
 // 那套「底部支點、傾角算物理」的設計已經拿掉）。TV 頂面世界座標 y =
