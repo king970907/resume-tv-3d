@@ -2,13 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
+import { Vector3 } from 'three'
 import type { AmbientLight, DirectionalLight, PointLight } from 'three'
 import { RetroTV } from '@/components/tv/RetroTV'
 import { DVDPlayer } from '@/components/dvd/DVDPlayer'
 import { DVDCase } from '@/components/dvd/DVDCase'
 import { DVDSelector } from '@/components/dvd/DVDSelector'
 import { CAMERA_TARGET, ORBIT_MAX_DISTANCE, ORBIT_MIN_DISTANCE } from '@/cores/const/scene'
-import { SCENE_DIM_DURATION, SCENE_DIM_FACTOR } from '@/cores/const/interaction'
+import {
+  DVD_SELECTOR_CAMERA_DISTANCE,
+  DVD_SELECTOR_CAMERA_DOLLY_DURATION,
+  SCENE_DIM_DURATION,
+  SCENE_DIM_FACTOR,
+} from '@/cores/const/interaction'
 import type { Project } from '@/cores/types/project'
 
 // 場景燈光的基準亮度——選片畫面開啟時，這幾顆燈會一起乘上 SCENE_DIM_FACTOR
@@ -31,8 +37,48 @@ export function Experience() {
   // 扇形排列，鏡頭一動排列就對不上），所以要透過 makeDefault + useThree
   // 拿到同一個實例手動鎖住，跟旋鈕拖曳時期解決的問題是同一招。
   const controls = useThree((state) => state.controls) as unknown as { enabled: boolean } | null
+  const camera = useThree((state) => state.camera)
 
   const [isDvdSelectorOpen, setIsDvdSelectorOpen] = useState(false)
+  // 跟 isDvdSelectorOpen 分開——盒蓋掀開/場景變暗要立刻觸發，但碟片扇形
+  // 展開要等鏡頭確定拉到安全距離之後才能算位置（DVDSelector 是用「開啟
+  // 當下」的鏡頭位置算扇形排列，鏡頭如果太近，碟片會直接卡進 TV 機身）。
+  const [discsReady, setDiscsReady] = useState(false)
+
+  useEffect(() => {
+    if (!isDvdSelectorOpen) {
+      // 收起來不用管鏡頭有沒有拉遠過——直接讓碟片收回去就好，鏡頭位置
+      // 沒有要求要還原。
+      gsap.killTweensOf(camera.position)
+      // oxlint-disable-next-line react/set-state-in-effect
+      setDiscsReady(false)
+      return
+    }
+
+    const distance = camera.position.distanceTo(new Vector3(...CAMERA_TARGET))
+    if (distance >= DVD_SELECTOR_CAMERA_DISTANCE) {
+      // 鏡頭已經夠遠，不用拉——直接標記碟片可以展開，不用等一個不會發生
+      // 的動畫。
+      // oxlint-disable-next-line react/set-state-in-effect
+      setDiscsReady(true)
+      return
+    }
+
+    // 沿著「目標→目前鏡頭位置」的方向往外拉，不是沿著鏡頭朝向——這樣
+    // 拉遠的過程中畫面看起來像純粹後退，不會因為順便轉向而讓使用者暈。
+    const direction = camera.position.clone().sub(new Vector3(...CAMERA_TARGET)).normalize()
+    const targetPosition = new Vector3(...CAMERA_TARGET).addScaledVector(direction, DVD_SELECTOR_CAMERA_DISTANCE)
+
+    gsap.killTweensOf(camera.position)
+    gsap.to(camera.position, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: DVD_SELECTOR_CAMERA_DOLLY_DURATION,
+      ease: 'power2.out',
+      onComplete: () => setDiscsReady(true),
+    })
+  }, [isDvdSelectorOpen, camera])
 
   useEffect(() => {
     const lights = [ambientRef.current, keyLightRef.current, fillLightRef.current, accentLightRef.current]
@@ -100,7 +146,7 @@ export function Experience() {
       <RetroTV />
       <DVDCase isOpen={isDvdSelectorOpen} onToggle={() => setIsDvdSelectorOpen((v) => !v)} />
       <DVDSelector
-        isOpen={isDvdSelectorOpen}
+        isOpen={discsReady}
         onSelect={handleSelectProject}
         onClose={() => setIsDvdSelectorOpen(false)}
       />

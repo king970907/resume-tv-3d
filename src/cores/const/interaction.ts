@@ -27,6 +27,15 @@ export const DVD_SELECTOR_FLY_DURATION = 0.6 // 秒，飛出/收回的動畫時�
 export const SCENE_DIM_FACTOR = 0.03 // 選片時場景燈光乘上這個係數（趨近全黑但留一點層次）
 export const SCENE_DIM_DURATION = 0.4 // 秒，燈光暗下/恢復的時間
 
+// 選片開啟時鏡頭要拉遠到的安全距離（離 CAMERA_TARGET 多遠）——碟片扇形
+// 排列的位置是算「鏡頭前方 DVD_SELECTOR_DISTANCE 處」，使用者如果開盒前
+// 剛好把鏡頭拉得比這個距離還近（OrbitControls 允許近到 ORBIT_MIN_DISTANCE
+// =0.6），碟片會直接卡在 TV 機身裡面、穿模。這個距離抓在預設鏡頭位置
+// （CAMERA_POSITION 離 CAMERA_TARGET 約 2.04）附近再留一點餘裕，只有目前
+// 距離比這個近的時候才會往外拉，鏡頭已經比較遠的話不動它。
+export const DVD_SELECTOR_CAMERA_DISTANCE = 2.2
+export const DVD_SELECTOR_CAMERA_DOLLY_DURATION = 0.5 // 秒
+
 // 選片畫面裡碟片的閒置自轉——hover 時停下來、轉正對鏡頭。
 export const DVD_SELECTOR_SPIN_SPEED_X = 0.4 // 弧度/秒
 export const DVD_SELECTOR_SPIN_SPEED_Y = 0.6 // 弧度/秒
