@@ -59,8 +59,12 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
     const front = frontRef.current
     if (!front) return
     gsap.killTweensOf(front.rotation)
+    // 轉的是 z，不是 y——鉸鏈邊緣沿著 three.js 的 Z 軸走（見上面軸對調
+    // 的說明：Blender 的「高度」軸匯出後對應 three.js 的 -Z），要繞著
+    // 平行於鉸鏈邊緣的軸轉，前蓋才會像書本一樣往上掀開；轉 y（垂直軸）
+    // 會變成像門一樣水平橫向甩開，實測過確實是這樣、看起來很怪。
     gsap.to(front.rotation, {
-      y: isOpen ? DVD_CASE_OPEN_ANGLE : 0,
+      z: isOpen ? DVD_CASE_OPEN_ANGLE : 0,
       duration: DVD_CASE_OPEN_DURATION,
       ease: 'power2.out',
     })
