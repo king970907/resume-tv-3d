@@ -63,6 +63,10 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
     // 的說明：Blender 的「高度」軸匯出後對應 three.js 的 -Z），要繞著
     // 平行於鉸鏈邊緣的軸轉，前蓋才會像書本一樣往上掀開；轉 y（垂直軸）
     // 會變成像門一樣水平橫向甩開，實測過確實是這樣、看起來很怪。
+    //
+    // DVD_CASE_OPEN_ANGLE 是正值——瀏覽器實測過，負值會讓前蓋往下往前
+    // 甩，掀開時整片蓋到 TV 螢幕/旋鈕那一側（使用者回報「開錯邊」）；
+    // 正值前蓋才是往後上方掀開，不會擋到 TV。
     gsap.to(front.rotation, {
       z: isOpen ? DVD_CASE_OPEN_ANGLE : 0,
       duration: DVD_CASE_OPEN_DURATION,

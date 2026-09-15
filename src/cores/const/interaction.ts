@@ -11,10 +11,12 @@ export const DVD_TRAY_ANIM_DURATION = 0.5 // 秒
 export const KNOB_DEFAULT_PAGE_COUNT = 4
 export const KNOB_STEP_DURATION = 0.35 // 秒，每按一次的轉動動畫時間
 
-// -1.9 弧度（約 -109°）——真實 Blender 模型的前蓋鉸鏈掀開角度，在 Blender
-// 裡實測過 -100°~-110° 是自然掀開、不會穿模的範圍（舊 placeholder 用的
+// +1.9 弧度（約 109°）——真實 Blender 模型的前蓋鉸鏈掀開角度，Blender 裡
+// 測過 100°~110° 這個量級是自然掀開、不會穿模的範圍（舊 placeholder 用的
 // -137° 是配合當時那組雙 box 假鉸鏈調的，跟真實模型的鉸鏈幾何無關）。
-export const DVD_CASE_OPEN_ANGLE = -1.9
+// 正負號在 three.js 端另外用瀏覽器實測決定：負值會讓前蓋往下往前甩，蓋到
+// TV 螢幕/旋鈕那一側（「開錯邊」）；正值才是往後上方掀開、不會擋到 TV。
+export const DVD_CASE_OPEN_ANGLE = 1.9
 export const DVD_CASE_OPEN_DURATION = 0.5 // 秒
 
 // 選片畫面：碟片飛到鏡頭前方排成一列，場景其他光源同時暗下去。
