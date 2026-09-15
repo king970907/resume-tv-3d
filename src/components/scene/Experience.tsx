@@ -108,6 +108,26 @@ export function Experience() {
     })
 
     if (selectorLightRef.current) {
+      if (isDvdSelectorOpen) {
+        // 選片燈原本釘死在世界座標的固定點——碟片扇形排列的位置是跟著
+        // 「開盒當下的鏡頭」算的（見 DVDSelector.tsx），使用者開盒前如果把
+        // 鏡頭轉到別的角度，固定位置的燈就可能完全對不上碟片的方向，碟片
+        // 幾乎沒被照到、只剩邊緣一絲高光，實測過（把鏡頭轉到側面再開盒）
+        // 確實會整片死黑，跟這次回報的「遮罩太暗」是同一個成因。
+        //
+        // 改成每次開盒當下，用「鏡頭位置＋鏡頭前方＋鏡頭上方」現算一個
+        // 跟著鏡頭走的位置——效果像相機上加了一顆隨機身轉的補光燈，不管
+        // 使用者開盒前轉到哪個角度，選片時碟片前方一定有光。跟 DVDSelector
+        // 算扇形排列用的是同一套 forward/up 向量，兩邊天然對得上。
+        const forward = new Vector3()
+        camera.getWorldDirection(forward)
+        const lightPosition = camera.position
+          .clone()
+          .addScaledVector(forward, 0.5)
+          .addScaledVector(camera.up, 0.4)
+        selectorLightRef.current.position.copy(lightPosition)
+      }
+
       gsap.killTweensOf(selectorLightRef.current)
       gsap.to(selectorLightRef.current, {
         intensity: isDvdSelectorOpen ? SELECTOR_LIGHT_INTENSITY : 0,
@@ -121,7 +141,7 @@ export function Experience() {
     // 那次踩過的 TS/lint 坑一樣）。
     // oxlint-disable-next-line react/immutability
     if (controls) controls.enabled = !isDvdSelectorOpen
-  }, [isDvdSelectorOpen, controls])
+  }, [isDvdSelectorOpen, controls, camera])
 
   const handleSelectProject = (project: Project) => {
     // 佔位——真正的行為是「切換 TV 螢幕顯示這個項目」，但螢幕貼圖系統
@@ -170,8 +190,12 @@ export function Experience() {
       <pointLight ref={accentLightRef} position={[-0.6, 0.5, -0.4]} intensity={ACCENT_LIGHT_BASE_INTENSITY} color="#5aa9e6" />
 
       {/* 選片專用燈——平常是 0，選片畫面開啟時才亮起來，讓其他光源暗下去
-          後，飛到鏡頭前的碟片還是看得清楚。位置抓在鏡頭常駐位置前方一點。 */}
-      <pointLight ref={selectorLightRef} position={[0.3, 0.6, 1.2]} intensity={0} color="#e8e8d0" />
+          後，飛到鏡頭前的碟片還是看得清楚。故意不在這裡寫死 position——
+          交給上面的 effect 在每次開盒當下用「鏡頭位置」現算，讓這顆燈跟著
+          鏡頭走（理由見那段 effect 的註解）。如果在這裡也寫一個固定
+          position，React 每次重渲染都會把 effect 現算的位置蓋回這個固定
+          值，等於白算。 */}
+      <pointLight ref={selectorLightRef} intensity={0} color="#e8e8d0" />
 
       <DVDPlayer />
       <RetroTV />

@@ -24,7 +24,7 @@ export const DVD_SELECTOR_DISTANCE = 1 // 碟片扇形排列的中心離鏡頭�
 export const DVD_SELECTOR_ARC_SPACING = 0.45 // 每片碟沿鏡頭「右方向」展開的間距
 export const DVD_SELECTOR_SCALE = 2 // 飛到選片位置後放大幾倍，原尺寸在這個距離下太小看不清楚
 export const DVD_SELECTOR_FLY_DURATION = 0.6 // 秒，飛出/收回的動畫時間
-export const SCENE_DIM_FACTOR = 0.03 // 選片時場景燈光乘上這個係數（趨近全黑但留一點層次）
+export const SCENE_DIM_FACTOR = 0.15 // 選片時場景燈光乘上這個係數（趨近全黑但留一點層次）
 export const SCENE_DIM_DURATION = 0.4 // 秒，燈光暗下/恢復的時間
 
 // 選片開啟時鏡頭要拉遠到的安全距離（離 CAMERA_TARGET 多遠）——碟片扇形
