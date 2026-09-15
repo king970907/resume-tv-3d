@@ -6,8 +6,11 @@ import type { Project } from '@/cores/types/project'
 interface DVDProps {
   project: Project
   position?: [number, number, number]
-  // 這個元件約定的預設朝向是「面朝鏡頭（+Z）」，跟旋鈕不同，父層不需要
-  // 額外轉 90° 拗過去。
+  // 這個元件約定的預設朝向是「正面朝上（+Y）」——光碟是扁平物件，法向量
+  // 是 Y 軸不是 Z 軸（原本這裡誤寫成 +Z，害 DVDSelector.tsx 算鏡頭朝向
+  // 時直接套用 Object3D.lookAt() 對齊 -Z，結果扇形排列的碟片幾乎側面對著
+  // 鏡頭，只看得到一條邊緣細線；細節/教訓見 DVDSelector.tsx 裡對應的
+  // 註解）。跟旋鈕不同，父層不需要額外轉 90° 拗過去。
   rotation?: [number, number, number]
   onSelect?: (project: Project) => void
   onHoverChange?: (hovering: boolean) => void
@@ -58,9 +61,15 @@ export function DVD({ project, position = [0, 0, 0], rotation = [0, 0, 0], onSel
         onHoverChange?.(false)
       }}
     >
-      {/* Blender 端光碟本地座標的標籤面是 -Z（跟 dvd-case 那邊裝配時的
-          方向一致，見 blender-project/models/dvd-case/notes.md），這個
-          元件的約定是預設要面朝 +Z，所以整組繞 X 轉 180° 翻面。 */}
+      {/* Blender 端光碟本地座標的標籤面是 Blender 的 -Z（跟 dvd-case 那邊
+          裝配時的方向一致，見 blender-project/models/dvd-case/notes.md）
+          ——但 Blender 是 Z-up，匯出成 glTF 後 Blender 的 Z 軸對應到
+          three.js 的 Y 軸（Blender 的「上下」變成 three.js 的「上下」，
+          很直覺，容易忘記這裡也適用同一套換算），所以這裡量到的光碟
+          幾何實際上是「躺平在 XZ 平面、法向量是 Y 軸」，不是字面上的 Z。
+          這個元件的約定是預設要面朝 +Y，所以整組繞 X 轉 180° 翻面
+          （180° 繞 X 轉只會翻 Y/Z 的正負號，不會把法向量從 Y 轉到別的
+          軸，翻完之後法向量還是 Y 軸，只是正負號變了）。 */}
       <group rotation={[Math.PI, 0, 0]}>
         {discParts.map((part, i) => (
           <mesh key={i} geometry={part.geometry} material={part.material} castShadow receiveShadow />

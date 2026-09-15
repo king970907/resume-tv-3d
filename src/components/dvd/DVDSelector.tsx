@@ -79,7 +79,21 @@ export function DVDSelector({ isOpen, onSelect, onClose }: DVDSelectorProps) {
         const offset = (i - (PROJECTS.length - 1) / 2) * DVD_SELECTOR_ARC_SPACING
         const target = center.clone().add(right.clone().multiplyScalar(offset))
 
-        group.lookAt(camera.position)
+        // 不能用 Object3D.lookAt()——那個對齊的是物件本地的 -Z 軸，但 DVD
+        // 光碟實際的正面法向量是本地 +Y 軸，不是 Z（見 DVD.tsx 的說明：
+        // Blender 端光碟是 Z-up 座標系裡「躺平」的物件，glTF 匯出時
+        // Blender 的 Z 軸對應到 three.js 的 Y 軸，不是原本誤植的 Z 軸；
+        // DVD.tsx 內部那個 180° 翻面只解決了「標籤面朝哪一邊」，沒有把
+        // 法向量本身從 Y 轉到 Z）。實測過：用 lookAt() 的結果是光碟幾乎
+        // 側面對著鏡頭（只看得到一條邊緣的細線），跟 DVD 本體疊在鏡頭
+        // 視線的水平面上時尤其明顯。改成手動算一個「本地 +Y 對齊到鏡頭
+        // 方向」的四元數，才會是碟片整個圓面朝向鏡頭。
+        //
+        // 方向要用 target（這次動畫最終停留的位置）算，不是用 group 當下
+        // （可能還在原地或上次收起來的位置）算——朝向只在這裡設一次，
+        // 之後飛行動畫只改 position/scale，角度要先對準最終停下來的地方。
+        const towardCamera = camera.position.clone().sub(target).normalize()
+        group.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), towardCamera)
         group.visible = true
 
         gsap.fromTo(
@@ -137,9 +151,25 @@ export function DVDSelector({ isOpen, onSelect, onClose }: DVDSelectorProps) {
     if (!spinGroup) return
 
     // hover 時停止累加、轉正對鏡頭（回到 rotation 0，因為外層 group 已經
-    // lookAt 鏡頭了，內層歸零角度疊上去就是「正面朝向鏡頭」）；放開游標
+    // 對齊鏡頭方向了，內層歸零角度疊上去就是「正面朝向鏡頭」）；放開游標
     // 不用轉回去，直接從目前角度繼續累加即可。
     if (hovering) {
+      // rotation.x/y 是每幀累加、沒有 wrap 回 [0, 2π) ——閒置轉久一點
+      // （例如碟片飛出來放著沒人動超過一圈半），數值可能已經是 6、8 甚至
+      // 更大。直接 tween 到 0 會讓 gsap 照數字大小硬轉那麼多圈才會停，
+      // 使用者會看到碟片瞬間狂轉一大圈才定住，畫面在轉的過程中會經過
+      // 各種奇怪的側面角度，看起來像壞掉（實測過，回報「hover 變成很怪
+      // 的形狀」正是這個原因，不是單純的朝向搞錯）。先把數值 wrap 到
+      // 數學上等價、但落在 [-π, π] 內最接近 0 的角度，tween 才會是一段
+      // 不超過半圈的最短路徑，瞬間定住的視覺效果不會經過奇怪的中間角度。
+      const wrapToNearestZero = (angle: number) => {
+        const twoPi = Math.PI * 2
+        const wrapped = ((angle % twoPi) + twoPi) % twoPi
+        return wrapped > Math.PI ? wrapped - twoPi : wrapped
+      }
+      spinGroup.rotation.x = wrapToNearestZero(spinGroup.rotation.x)
+      spinGroup.rotation.y = wrapToNearestZero(spinGroup.rotation.y)
+
       gsap.killTweensOf(spinGroup.rotation)
       gsap.to(spinGroup.rotation, {
         x: 0,
