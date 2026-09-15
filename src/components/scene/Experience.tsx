@@ -19,9 +19,20 @@ import type { Project } from '@/cores/types/project'
 
 // 場景燈光的基準亮度——選片畫面開啟時，這幾顆燈會一起乘上 SCENE_DIM_FACTOR
 // 暗下去，只留選片專用的那顆燈亮著，做出「背景變黑、碟片浮現」的效果。
-const AMBIENT_BASE_INTENSITY = 0.7
-const KEY_LIGHT_BASE_INTENSITY = 1.2
-const FILL_LIGHT_BASE_INTENSITY = 0.5
+//
+// 整體配色走「暗房裡看電視」的調子：主光源刻意調暖（像一盞立燈），背後
+// 的點綴光改冷色（像窗外透進來的月光/街燈），冷暖對比讓場景在昏暗中還是
+// 有層次，不會整片死灰——原本點綴光用高飽和度的螢光綠(#39ff14)，強度又
+// 開到 4，等於用一顆綠色探照燈打整個場景，任何中性色材質被掃到都會泛
+// 綠，這才是「泛綠光」真正的原因（不是材質本身的問題）。
+//
+// 第一版把整體強度壓太低，變成「看不清楚細節的暗」而不是「氣氛暗但細節
+// 清楚」（使用者拿一個暗色系但物件細節都看得很清楚的參考網站對比）。配色
+// 維持不變，只把每個光源的強度整體調高一截，尤其是主光源跟補光——暗色系
+// 的重點是背景/陰影夠暗、對比夠強，不是把物件本身也一起悶暗。
+const AMBIENT_BASE_INTENSITY = 0.45
+const KEY_LIGHT_BASE_INTENSITY = 1.6
+const FILL_LIGHT_BASE_INTENSITY = 0.6
 const ACCENT_LIGHT_BASE_INTENSITY = 4
 const SELECTOR_LIGHT_INTENSITY = 1.5
 
@@ -124,19 +135,39 @@ export function Experience() {
     <>
       <color attach="background" args={['#0a0a0a']} />
 
-      {/* 整體墊底亮度——墊高最低亮度，陰影死角才不會死黑一片 */}
-      <ambientLight ref={ambientRef} intensity={AMBIENT_BASE_INTENSITY} />
+      {/* 整體墊底亮度——墊高最低亮度，陰影死角才不會死黑一片。壓低強度、
+          調暖色溫，讓沒被主光/補光直接照到的角落是「暗房裡的餘光」，
+          不是死黑，也不是大白天的平光。 */}
+      <ambientLight ref={ambientRef} intensity={AMBIENT_BASE_INTENSITY} color="#3a3226" />
 
-      {/* 主光源——從上方偏前打下來，唯一負責投影的光 */}
-      <directionalLight ref={keyLightRef} position={[0.6, 1.2, 0.8]} intensity={KEY_LIGHT_BASE_INTENSITY} castShadow />
+      {/* 主光源——從上方偏前打下來，唯一負責投影的光。調成暖色（像一盞
+          立燈/檯燈），是整個場景裡最亮、最有存在感的光源。 */}
+      <directionalLight
+        ref={keyLightRef}
+        position={[0.6, 1.2, 0.8]}
+        intensity={KEY_LIGHT_BASE_INTENSITY}
+        color="#ffd9a8"
+        castShadow
+      />
 
       {/* 補光——低角度、從前方打過來，專門補到 DVD player 的正面，
-          因為它疊在 TV 下層，正好被主光源的影子擋住 */}
-      <directionalLight ref={fillLightRef} position={[0, 0.35, 1.2]} intensity={FILL_LIGHT_BASE_INTENSITY} />
+          因為它疊在 TV 下層，正好被主光源的影子擋住。刻意調成很淡的冷白
+          （不是純白），強度也壓低，功能上只是把主光源照不到的死角托出
+          輪廓，不會搶主光源的暖色調。 */}
+      <directionalLight
+        ref={fillLightRef}
+        position={[0, 0.35, 1.2]}
+        intensity={FILL_LIGHT_BASE_INTENSITY}
+        color="#cfd8e8"
+      />
 
-      {/* 點綴——這個版本的 three.js 點光源用的是 candela 單位，數字要開得
-          比方向光/環境光大很多才看得出來 */}
-      <pointLight ref={accentLightRef} position={[-0.6, 0.5, -0.4]} intensity={ACCENT_LIGHT_BASE_INTENSITY} color="#39ff14" />
+      {/* 背後點綴——像窗外透進來的月光/街燈，冷色調跟主光源的暖色形成對比，
+          把物件從全黑背景裡「勾」出輪廓光，暗房氛圍才有層次感，不是一片
+          死黑。這個版本的 three.js 點光源用的是 candela 單位，數字要開得
+          比方向光/環境光大很多才看得出來。（原本這裡是高飽和度螢光綠、
+          強度開到 4，等於拿一顆綠色探照燈打整個場景，才是造成「泛綠光」
+          的原因——不是材質問題，見上面 ACCENT_LIGHT_BASE_INTENSITY 的說明。） */}
+      <pointLight ref={accentLightRef} position={[-0.6, 0.5, -0.4]} intensity={ACCENT_LIGHT_BASE_INTENSITY} color="#5aa9e6" />
 
       {/* 選片專用燈——平常是 0，選片畫面開啟時才亮起來，讓其他光源暗下去
           後，飛到鏡頭前的碟片還是看得清楚。位置抓在鏡頭常駐位置前方一點。 */}
