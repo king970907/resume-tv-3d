@@ -7,7 +7,11 @@
 // 拿掉避免誤導（以為改這裡會影響模型大小，實際上不會）。
 export const TV_HEIGHT = 0.48
 
-export const DVD_PLAYER_HEIGHT = 0.06
+// 0.09m 是 DVD_Body 在 Blender 裡的真實高度（用瀏覽器量過 bounding box
+// 確認），不是隨便抓的——原本沿用 RoundedBox placeholder 時代的 0.06m，
+// TV 疊上去時底部的木紋踏板因此陷進真實機身裡一截（真實機身比 placeholder
+// 假設的還高 0.03m）。
+export const DVD_PLAYER_HEIGHT = 0.09
 
 // 改回真實 DVD 盒比例（寬 x 高的正面朝鏡頭，深度是最薄的那個軸）——寬深
 // 之前被手動對調過，導致盒子太窄、碟片正面朝鏡頭時完全塞不進去，只能側面
