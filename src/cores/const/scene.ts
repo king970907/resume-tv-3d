@@ -30,7 +30,14 @@ export const DVD_THICKNESS = 0.0014
 // DVD player 的後半段（螢幕視角看起來像貼在後緣）。加上這個z偏移把機身
 // 移回 DVD player 深度的中間（機身深度約0.28m，DVD_PLAYER_DEPTH=0.54m，
 // 偏移量 = 機身深度/2 抵銷掉往後偏的量）。
-export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0.14]
+//
+// y 軸多加 0.0216：TV 原點是機身本體的底部，但底下的木紋踏板
+// （TV_Base_Plinth）是往下凸出的腳座，比機身本體的底部還低 0.0216m
+// （用 Blender 量過頂點座標確認）。只用 DVD_PLAYER_HEIGHT 對齊機身本體
+// 底部的話，踏板會整個埋進 DVD player 機身裡看不到——這個偏移量把
+// 「踏板的底部」（不是機身本體的底部）對齊到 DVD player 頂面。
+const TV_PLINTH_OVERHANG = 0.0216
+export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT + TV_PLINTH_OVERHANG, 0.14]
 
 // z 軸偏移道理跟 TV_POSITION 一樣：DVD player 的 Blender 模型原點也在
 // 「前臉底部中心」，機身往+z方向延伸，套用同一個180°翻轉後機身變成往
