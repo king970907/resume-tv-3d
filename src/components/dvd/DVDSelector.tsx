@@ -53,19 +53,15 @@ export function DVDSelector({ isOpen, onSelect, onClose }: DVDSelectorProps) {
     const right = new Vector3().crossVectors(forward, camera.up).normalize()
     const center = camera.position.clone().add(forward.multiplyScalar(DVD_SELECTOR_DISTANCE))
 
-    if (backdropRef.current) {
-      if (isOpen) {
-        const backdropCenter = camera.position
-          .clone()
-          .add(forward.clone().multiplyScalar(DVD_SELECTOR_DISTANCE + BACKDROP_DISTANCE_PAST_DISCS))
-        backdropRef.current.position.copy(backdropCenter)
-        backdropRef.current.lookAt(camera.position)
-        backdropRef.current.visible = true
-      } else {
-        // visible = false 順便關掉這片的 raycast，關閉狀態下不會誤擋到
-        // 場景其他物件（TV、player）原本的點擊。
-        backdropRef.current.visible = false
-      }
+    // 背板現在只在 isOpen 時才掛載（見 JSX），isOpen 變 false 的當下它就
+    // 已經從場景圖移除、ref 也跟著清空了，這裡不用再處理「關閉時怎麼藏
+    // 起來」——不存在的東西不用藏。
+    if (isOpen && backdropRef.current) {
+      const backdropCenter = camera.position
+        .clone()
+        .add(forward.clone().multiplyScalar(DVD_SELECTOR_DISTANCE + BACKDROP_DISTANCE_PAST_DISCS))
+      backdropRef.current.position.copy(backdropCenter)
+      backdropRef.current.lookAt(camera.position)
     }
 
     PROJECTS.forEach((_, i) => {
@@ -188,12 +184,25 @@ export function DVDSelector({ isOpen, onSelect, onClose }: DVDSelectorProps) {
 
   return (
     <>
-      {/* 預設不可見（visible=false 同時關掉 raycast），只有選片開啟時才
-          出現在碟片後面接住其他點擊。 */}
-      <mesh ref={backdropRef} visible={false} onClick={handleBackdropClick}>
-        <planeGeometry args={[BACKDROP_SIZE, BACKDROP_SIZE]} />
-        <meshBasicMaterial color="#000000" />
-      </mesh>
+      {/* 只有選片開啟時才掛載——react-three-fiber 的事件系統是在物件掛載、
+          handler 註冊的當下就把它記進可被 raycast 命中的清單，之後不會
+          因為 visible 變 false 就跳過，跟 DOM 的「display:none 元素不會
+          收到點擊」是兩回事（實測過：把這片背板留著只是切 visible，選片
+          從沒開過、backdropRef 也還沒被下面的 effect 定位過，它就停在
+          預設 position(0,0,0)、30x30 那麼大的一片，直接把 TV/DVD player/
+          DVD 盒罩住，只要點擊沒有精準命中那些物件自己的可點擊範圍，這片
+          隱形背板就會搶先接住，呼叫 onClose()——選片本來就是關的，
+          onClose 等於沒作用，使用者只會看到「點了沒反應」。收起來後也
+          一樣：position 停在上次選片時鏡頭前方的位置，沒有跟著歸位，
+          同一塊區域會繼續擋著後續點擊。改成整個元件只在 isOpen 時才
+          掛載，關閉時直接從場景圖移除，這樣才是真的「不會被點到」，不是
+          只是「看不到但還擋著」。 */}
+      {isOpen && (
+        <mesh ref={backdropRef} onClick={handleBackdropClick}>
+          <planeGeometry args={[BACKDROP_SIZE, BACKDROP_SIZE]} />
+          <meshBasicMaterial color="#000000" />
+        </mesh>
+      )}
 
       {PROJECTS.map((project, i) => (
         <group
