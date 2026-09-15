@@ -5,6 +5,16 @@ resume-tv-3d — React + TypeScript portfolio rendered as a real 3D scene
 See README.md for concept and component map, [PLANNING.md](./PLANNING.md) for
 current progress, decision log, and what's next.
 
+## Working Rules
+
+1. 開始寫程式前先思考——想清楚要怎麼做、會動到哪些檔案，不要邊寫邊想
+2. 先讀再寫——改一個檔案前先讀過目前的內容，不要憑印象/猜測就下手改
+3. 不要隱藏尚未完成的工作——沒做完、沒驗證過的部分要明講，不要包裝成已完成
+4. 多問問題，不要用猜的——不清楚使用者要什麼就直接問，不要自己腦補一個方向做下去
+5. 遇到卡住/處理不了的事情，先暫停——同一個問題最多重試兩次，還是不行就停下來回報，不要一直悶頭試
+6. 沒有明確被告知要 commit，就不要自己 commit
+7. 備注（comments）簡單清楚為主——不要寫廢話，只寫「為什麼」這麼做，不寫「做了什麼」（跟下面 TypeScript 慣例那條一致）
+
 ## Tech Stack
 
 | Role | Package |
