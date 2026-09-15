@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import { Vector3 } from 'three'
 import type { AmbientLight, DirectionalLight, PointLight } from 'three'
 import { RetroTV } from '@/components/tv/RetroTV'
+import type { ScreenContent } from '@/components/tv/RetroTV'
 import { DVDPlayer } from '@/components/dvd/DVDPlayer'
 import { DVDCase } from '@/components/dvd/DVDCase'
 import { DVDSelector } from '@/components/dvd/DVDSelector'
@@ -15,7 +16,19 @@ import {
   SCENE_DIM_DURATION,
   SCENE_DIM_FACTOR,
 } from '@/cores/const/interaction'
+import {
+  CAMERA_FOCUS_DURATION,
+  CAMERA_FOCUS_POSITION,
+  CAMERA_FOCUS_TARGET,
+  CAMERA_ZOOM_POSITION,
+  CAMERA_ZOOM_TARGET,
+  INTRO_LOADING_DURATION,
+  SCREEN_ZOOM_IN_DURATION,
+  SCREEN_ZOOM_OUT_DURATION,
+} from '@/cores/const/screen'
 import type { Project } from '@/cores/types/project'
+import type { ScreenPage } from '@/data/screenPages'
+import type { ScreenPhase } from '@/cores/types/screenPhase'
 
 // 場景燈光的基準亮度——選片畫面開啟時，這幾顆燈會一起乘上 SCENE_DIM_FACTOR
 // 暗下去，只留選片專用的那顆燈亮著，做出「背景變黑、碟片浮現」的效果。
@@ -36,7 +49,25 @@ const FILL_LIGHT_BASE_INTENSITY = 0.6
 const ACCENT_LIGHT_BASE_INTENSITY = 4
 const SELECTOR_LIGHT_INTENSITY = 1.5
 
-export function Experience() {
+interface ExperienceProps {
+  phase: ScreenPhase
+  onPhaseChange: (phase: ScreenPhase) => void
+  pageIndex: number
+  pageCount: number
+  page: ScreenPage
+  isChannelLoading: boolean
+  onChannelChange: (index: number) => void
+}
+
+export function Experience({
+  phase,
+  onPhaseChange,
+  pageIndex,
+  pageCount,
+  page,
+  isChannelLoading,
+  onChannelChange,
+}: ExperienceProps) {
   const ambientRef = useRef<AmbientLight>(null)
   const keyLightRef = useRef<DirectionalLight>(null)
   const fillLightRef = useRef<DirectionalLight>(null)
@@ -44,10 +75,16 @@ export function Experience() {
   const selectorLightRef = useRef<PointLight>(null)
 
   // OrbitControls 直接掛在 canvas DOM 上監聽，跟 R3F 自己的事件系統是兩條
-  // 線——選片期間鏡頭必須固定不動（DVDSelector 用「開啟當下」的鏡頭位置算
-  // 扇形排列，鏡頭一動排列就對不上），所以要透過 makeDefault + useThree
-  // 拿到同一個實例手動鎖住，跟旋鈕拖曳時期解決的問題是同一招。
-  const controls = useThree((state) => state.controls) as unknown as { enabled: boolean } | null
+  // 線——選片期間、螢幕運鏡期間鏡頭都必須是「被程式控制」而不是使用者
+  // 亂轉，所以要透過 makeDefault + useThree 拿到同一個實例手動鎖住，跟
+  // 旋鈕拖曳時期解決的問題是同一招。額外拿 target 是因為螢幕聚焦/全螢幕
+  // 運鏡不只要移動鏡頭位置，還要改鏡頭「看向哪裡」，OrbitControls 自己
+  // 內部也維護一份 target，兩邊要同步。
+  const controls = useThree((state) => state.controls) as unknown as {
+    enabled: boolean
+    target: Vector3
+    update: () => void
+  } | null
   const camera = useThree((state) => state.camera)
 
   const [isDvdSelectorOpen, setIsDvdSelectorOpen] = useState(false)
@@ -138,18 +175,133 @@ export function Experience() {
 
     // `controls` 是 useThree 拿到的、真實存在的 three.js OrbitControls 實例，
     // 不是 React state——直接改 .enabled 就是它預期的用法（跟 RetroTV 旋鈕
-    // 那次踩過的 TS/lint 坑一樣）。
+    // 那次踩過的 TS/lint 坑一樣）。選片開著、或螢幕運鏡流程不在 idle 階段
+    // 時都不能讓使用者自由轉鏡頭，兩個條件都要滿足才解鎖。
     // oxlint-disable-next-line react/immutability
-    if (controls) controls.enabled = !isDvdSelectorOpen
-  }, [isDvdSelectorOpen, controls, camera])
+    if (controls) controls.enabled = !isDvdSelectorOpen && phase === 'idle'
+  }, [isDvdSelectorOpen, controls, camera, phase])
+
+  // 螢幕流程的鏡頭運鏡/計時——每個 phase 進來的當下決定要不要動鏡頭、要
+  // 等多久才進下一步，統一集中在這裡，MainScene 只負責存 phase 本身跟
+  // 渲染對應的 DOM 疊層。
+  useEffect(() => {
+    if (!controls) return
+
+    if (phase === 'focusing') {
+      gsap.killTweensOf(camera.position)
+      gsap.killTweensOf(controls.target)
+      const timeline = gsap.timeline({ onComplete: () => onPhaseChange('loading') })
+      timeline.to(
+        camera.position,
+        { x: CAMERA_FOCUS_POSITION[0], y: CAMERA_FOCUS_POSITION[1], z: CAMERA_FOCUS_POSITION[2], duration: CAMERA_FOCUS_DURATION, ease: 'power2.inOut' },
+        0,
+      )
+      timeline.to(
+        controls.target,
+        {
+          x: CAMERA_FOCUS_TARGET[0],
+          y: CAMERA_FOCUS_TARGET[1],
+          z: CAMERA_FOCUS_TARGET[2],
+          duration: CAMERA_FOCUS_DURATION,
+          ease: 'power2.inOut',
+          onUpdate: () => controls.update(),
+        },
+        0,
+      )
+      return () => {
+        timeline.kill()
+      }
+    }
+
+    if (phase === 'loading') {
+      const timer = gsap.delayedCall(INTRO_LOADING_DURATION, () => onPhaseChange('idle'))
+      return () => {
+        timer.kill()
+      }
+    }
+
+    if (phase === 'zooming-in') {
+      gsap.killTweensOf(camera.position)
+      gsap.killTweensOf(controls.target)
+      const timeline = gsap.timeline({ onComplete: () => onPhaseChange('fullscreen') })
+      timeline.to(
+        camera.position,
+        { x: CAMERA_ZOOM_POSITION[0], y: CAMERA_ZOOM_POSITION[1], z: CAMERA_ZOOM_POSITION[2], duration: SCREEN_ZOOM_IN_DURATION, ease: 'power2.in' },
+        0,
+      )
+      timeline.to(
+        controls.target,
+        {
+          x: CAMERA_ZOOM_TARGET[0],
+          y: CAMERA_ZOOM_TARGET[1],
+          z: CAMERA_ZOOM_TARGET[2],
+          duration: SCREEN_ZOOM_IN_DURATION,
+          ease: 'power2.in',
+          onUpdate: () => controls.update(),
+        },
+        0,
+      )
+      return () => {
+        timeline.kill()
+      }
+    }
+
+    if (phase === 'zooming-out') {
+      gsap.killTweensOf(camera.position)
+      gsap.killTweensOf(controls.target)
+      const timeline = gsap.timeline({ onComplete: () => onPhaseChange('idle') })
+      timeline.to(
+        camera.position,
+        { x: CAMERA_FOCUS_POSITION[0], y: CAMERA_FOCUS_POSITION[1], z: CAMERA_FOCUS_POSITION[2], duration: SCREEN_ZOOM_OUT_DURATION, ease: 'power2.out' },
+        0,
+      )
+      timeline.to(
+        controls.target,
+        {
+          x: CAMERA_FOCUS_TARGET[0],
+          y: CAMERA_FOCUS_TARGET[1],
+          z: CAMERA_FOCUS_TARGET[2],
+          duration: SCREEN_ZOOM_OUT_DURATION,
+          ease: 'power2.out',
+          onUpdate: () => controls.update(),
+        },
+        0,
+      )
+      return () => {
+        timeline.kill()
+      }
+    }
+
+    return undefined
+    // phase 是唯一該觸發這個 effect 重跑的東西——onPhaseChange 是穩定的
+    // setState 函式，camera/controls 是 useThree 拿到的穩定實例，都不用
+    // 放進依賴陣列造成不必要的重跑（跟原本 isDvdSelectorOpen 那個 effect
+    // 的寫法不同，那邊要重跑是因為要重新讀 controls/camera 的當下值，這裡
+    // 每次都直接用閉包裡的最新值就夠）。
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   const handleSelectProject = (project: Project) => {
-    // 佔位——真正的行為是「切換 TV 螢幕顯示這個項目」，但螢幕貼圖系統
-    // （Phase 2）還沒做，先用 alert 頂著，之後直接替換這行就好，不用動
-    // 選片畫面關閉的邏輯。
+    // 佔位——真正的行為是「切換 TV 螢幕顯示這個項目」，但這次先不把
+    // DVD 選片串進螢幕切換（見對話紀錄的決定），先用 alert 頂著，之後
+    // 直接替換這行就好，不用動選片畫面關閉的邏輯。
     alert(`切換螢幕：${project.title}`)
     setIsDvdSelectorOpen(false)
   }
+
+  // 螢幕現在該顯示什麼——intro/focusing 兩個階段螢幕是關的（黑），loading
+  // 階段或旋鈕換頁中都畫雜訊，其餘階段（idle/zooming-in/fullscreen/
+  // zooming-out）顯示目前頁面內容。運鏡途中(zooming-in/out)、全螢幕疊層
+  // 蓋著的時候螢幕內容其實不會被看到，但還是要維持顯示正確內容，運鏡回來
+  // 時才不會閃一下錯誤畫面。
+  const screenContent: ScreenContent =
+    phase === 'loading' || isChannelLoading
+      ? { mode: 'loading' }
+      : phase === 'intro' || phase === 'focusing'
+        ? { mode: 'off' }
+        : { mode: 'page', page, pageNumber: pageIndex + 1, pageCount }
+
+  const isScreenInteractive = phase === 'idle' && !isDvdSelectorOpen
 
   return (
     <>
@@ -198,8 +350,24 @@ export function Experience() {
       <pointLight ref={selectorLightRef} intensity={0} color="#e8e8d0" />
 
       <DVDPlayer />
-      <RetroTV />
-      <DVDCase isOpen={isDvdSelectorOpen} onToggle={() => setIsDvdSelectorOpen((v) => !v)} />
+      <RetroTV
+        pageCount={pageCount}
+        screenContent={screenContent}
+        interactive={isScreenInteractive}
+        onChannelChange={onChannelChange}
+        onScreenClick={() => {
+          if (phase === 'idle') onPhaseChange('zooming-in')
+        }}
+      />
+      <DVDCase
+        isOpen={isDvdSelectorOpen}
+        onToggle={() => {
+          // 螢幕流程不在 idle 階段時不給開盒——避免兩套各自控制鏡頭的
+          // 動畫互搶 camera.position/controls.target。
+          if (phase !== 'idle') return
+          setIsDvdSelectorOpen((v) => !v)
+        }}
+      />
       <DVDSelector
         isOpen={discsReady}
         onSelect={handleSelectProject}

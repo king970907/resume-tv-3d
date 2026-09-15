@@ -1,0 +1,41 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* 只加一層很淡的暗化，不是實心背景——後面的 3D 場景要透出來，這是
+     疊在畫面正中央的開場文字，不是蓋住整個畫面的過場。 */
+  background: rgba(0, 0, 0, 0.15);
+  opacity: 1;
+  transition-property: opacity;
+  transition-timing-function: ease-out;
+}
+
+.overlay[data-fading] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.content {
+  text-align: center;
+  color: #f2f2ea;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+  padding: 0 24px;
+}
+
+.greeting {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(2rem, 6vw, 4rem);
+  letter-spacing: 0.04em;
+}
+
+.hint {
+  margin: 12px 0 0;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(0.85rem, 2vw, 1.1rem);
+  color: #cfd8e8;
+  opacity: 0.85;
+}
