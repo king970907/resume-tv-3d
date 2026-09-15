@@ -25,7 +25,13 @@ export const DVD_DIAMETER = 0.144
 export const DVD_THICKNESS = 0.0014
 
 // TV 疊在 player 頂面上；player 貼地（y = 0）。
-export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0]
+// z 軸不是 0：TV 的 Blender 模型原點在「前臉底部中心」，機身往+z方向延伸；
+// RetroTV.tsx 為了讓螢幕面向鏡頭，把整個模型繞 y 轉了180°，這個旋轉是繞著
+// 模型自己的原點轉的，結果機身反而變成往 -z 延伸，整台 TV 因此整個偏向
+// DVD player 的後半段（螢幕視角看起來像貼在後緣）。加上這個z偏移把機身
+// 移回 DVD player 深度的中間（機身深度約0.28m，DVD_PLAYER_DEPTH=0.54m，
+// 偏移量 = 機身深度/2 抵銷掉往後偏的量）。
+export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT, 0.14]
 export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0]
 
 // DVD 盒改成平放在 TV 頂面上，隨性斜放（不再是站著靠在 TV 側邊那套姿態，
