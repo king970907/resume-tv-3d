@@ -5,7 +5,11 @@
 // placeholder 用的尺寸常數——TV 跟 DVD player 都換成 Blender 匯出的真實
 // geometry 後，實際尺寸已經內建在 .glb 檔案裡，這些常數沒有地方在用了，
 // 拿掉避免誤導（以為改這裡會影響模型大小，實際上不會）。
-export const TV_HEIGHT = 0.48
+// 0.398m 是 TV 頂面實際世界座標高度減掉 DVD_PLAYER_HEIGHT 反推出來的
+// （用瀏覽器量過 TV_Body 的 bounding box 確認頂面在 y≈0.4876）——原本沿用
+// RoundedBox placeholder 時代的 0.48m，跟真實模型差了將近 0.1m，會讓疊在
+// 上面的 DVD_CASE_REST_POSITION 懸空太高。
+export const TV_HEIGHT = 0.398
 
 // 0.09m 是 DVD_Body 在 Blender 裡的真實高度（用瀏覽器量過 bounding box
 // 確認），不是隨便抓的——原本沿用 RoundedBox placeholder 時代的 0.06m，
@@ -54,12 +58,12 @@ export const DVD_CASE_REST_POSITION: [number, number, number] = [
   DVD_PLAYER_HEIGHT + TV_HEIGHT + DVD_CASE_DEPTH / 2,
   0.08,
 ]
-// [x, y, z]：Euler 角是依序套用的，每一節繞的是「上一步轉完後的新軸」。
-// x 先轉 -90° 把盒子從站立轉成平躺（正面朝上）——轉完之後，物件原本的
-// Z 軸才是現在指向垂直方向的那個軸，所以「隨性轉一個角度」要放在 z，
-// 不是 y（y 轉完之後其實是水平朝前後的軸，轉它會把盒子掀起來，插進 TV
-// 裡——這是上一版插進電視裡的真正原因）。角度憑感覺抓，看畫面調。
-export const DVD_CASE_REST_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0.4]
+// 換成 Blender 匯出的真實 case 後不用再轉 -90°——這條是舊 placeholder box
+// 專用的（那個 box 用 three.js 手刻，預設厚度軸是水平的 Z，需要轉 90° 讓
+// 厚度變垂直）。真實 Blender 模型的厚度軸（Blender Z）匯出後直接對應
+// three.js 的 Y 軸，本來就是垂直的，不用轉。剩下這個 0.4 弧度是繞 Y
+// （垂直軸）的隨性擺放角度，角度憑感覺抓，看畫面調。
+export const DVD_CASE_REST_ROTATION: [number, number, number] = [0, 0.4, 0]
 
 export const CAMERA_POSITION: [number, number, number] = [0.55, 0.75, 1.9]
 export const CAMERA_TARGET: [number, number, number] = [0, 0.25, 0]
