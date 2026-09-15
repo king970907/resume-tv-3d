@@ -13,15 +13,14 @@ export const TV_HEIGHT = 0.48
 // 假設的還高 0.03m）。
 export const DVD_PLAYER_HEIGHT = 0.09
 
-// 改回真實 DVD 盒比例（寬 x 高的正面朝鏡頭，深度是最薄的那個軸）——寬深
-// 之前被手動對調過，導致盒子太窄、碟片正面朝鏡頭時完全塞不進去，只能側面
-// 朝向，但側面朝向在目前的鏡頭角度下幾乎看不到圓面（驗證過，不是角度問題）。
-export const DVD_CASE_WIDTH = 0.23
-export const DVD_CASE_HEIGHT = 0.16
-export const DVD_CASE_DEPTH = 0.02
-
-export const DVD_DIAMETER = 0.144
-export const DVD_THICKNESS = 0.0014
+// 真實 DVD case 在 Blender 裡的尺寸（見 blender-project/models/dvd-case/
+// notes.md）——換成 Blender 匯出的真實 geometry 後，這三個數字不再決定
+// case 長什麼樣子（那是 .glb 裡的事），但 DVDCase.tsx 拿它們來把 Blender
+// 端「原點在左下角」的座標系重新置中，跟 DVD_CASE_REST_POSITION 的「置中
+// 在原點」假設對起來，所以還留著，不是死代碼。
+export const DVD_CASE_WIDTH = 0.2
+export const DVD_CASE_HEIGHT = 0.17
+export const DVD_CASE_DEPTH = 0.0105
 
 // TV 疊在 player 頂面上；player 貼地（y = 0）。
 // z 軸不是 0：TV 的 Blender 模型原點在「前臉底部中心」，機身往+z方向延伸；

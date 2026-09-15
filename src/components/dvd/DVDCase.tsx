@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
+import { useGLTF } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
-import type { Group } from 'three'
+import type { Object3D } from 'three'
 import {
   DVD_CASE_DEPTH,
   DVD_CASE_HEIGHT,
@@ -13,6 +14,14 @@ import { DVD_CASE_OPEN_ANGLE, DVD_CASE_OPEN_DURATION } from '@/cores/const/inter
 import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import { DVD } from './DVD'
+
+// 真實模型從 Blender 匯出（blender-project/models/dvd-case/dvd-case.blend
+// → public/models/dvd-case.glb）。跟 TV/DVD player 不同的是，Blender 端
+// 這個模型的原點在「後殼外底面左下角」，不是置中——DVD_CASE_REST_POSITION/
+// ROTATION 這兩個常數原本是照「置中在物件原點」的舊 placeholder box 設計
+// 的，所以載入後先用內層 group 把模型往回推半個寬/高/厚度，變成「效果上
+// 置中在原點」，外層的 REST_POSITION/ROTATION 才不用整套重推。
+type GLTFNodes = Record<string, Object3D>
 
 // 盒子裡的碟片純粹是裝飾——真正的資料在 DVDSelector 那組飄浮碟片裡。固定
 // 一片，不要跟著 PROJECTS 數量長：疊太多片會像一疊沒對齊的百葉窗（3 片
@@ -28,19 +37,19 @@ interface DVDCaseProps {
   onToggle: () => void
 }
 
-// 封底這個 box 中心在 z = -DEPTH/4、半厚度 DEPTH/4，所以前面那個面（朝向
-// 開闔方向、鏡頭看得到的那面）落在 z = 0。碟片要貼在這個面前面一點點，
-// 不是貼在封底的幾何中心——中心是實心的，放在那裡碟片會被整個蓋子擋住。
-const DISC_Z = 0.002
+// 碟片疊在夾持花瓣卡榫上方的高度，見
+// blender-project/models/dvd-case/notes.md 的「光碟裝配方向」那節。
+const DISC_REST_Z = 0.0062
 
 export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
-  const coverPivotRef = useRef<Group>(null)
+  const { nodes } = useGLTF('/models/dvd-case.glb') as unknown as { nodes: GLTFNodes }
+  const frontRef = useRef<Object3D>(null)
 
   useEffect(() => {
-    const pivot = coverPivotRef.current
-    if (!pivot) return
-    gsap.killTweensOf(pivot.rotation)
-    gsap.to(pivot.rotation, {
+    const front = frontRef.current
+    if (!front) return
+    gsap.killTweensOf(front.rotation)
+    gsap.to(front.rotation, {
       y: isOpen ? DVD_CASE_OPEN_ANGLE : 0,
       duration: DVD_CASE_OPEN_DURATION,
       ease: 'power2.out',
@@ -48,9 +57,9 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
   }, [isOpen])
 
   useEffect(() => {
-    const pivot = coverPivotRef.current
+    const front = frontRef.current
     return () => {
-      if (pivot) gsap.killTweensOf(pivot.rotation)
+      if (front) gsap.killTweensOf(front.rotation)
     }
   }, [])
 
@@ -61,41 +70,34 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
 
   return (
     <group name="dvd-case-rest" position={DVD_CASE_REST_POSITION} rotation={DVD_CASE_REST_ROTATION}>
-      <mesh
-        name="dvd-case-back-cover"
-        position={[0, 0, -DVD_CASE_DEPTH / 4]}
-        castShadow
-        receiveShadow
+      {/* 重新置中：把 Blender 原點(左下角)搬回幾何中心，這樣外層的
+          REST_POSITION/ROTATION 沿用舊的「置中在原點」假設不用改。 */}
+      <group
+        position={[-DVD_CASE_WIDTH / 2, -DVD_CASE_HEIGHT / 2, -DVD_CASE_DEPTH / 2]}
         onClick={handleToggleOpen}
         onPointerOver={() => { document.body.style.cursor = 'pointer' }}
         onPointerOut={() => { document.body.style.cursor = 'default' }}
       >
-        <boxGeometry args={[DVD_CASE_WIDTH, DVD_CASE_HEIGHT, DVD_CASE_DEPTH / 2]} />
-        <meshStandardMaterial color="#3a3a4e" roughness={0.3} />
-      </mesh>
+        {/* 後殼/夾持卡榫等所有靜態部件——前蓋雖然也在這個節點樹裡，但下面
+            單獨用 primitive 把它抓出來接鉸鏈旋轉，three.js 的
+            Object3D.add() 會自動把它從這裡的階層搬過去，不會重複渲染。 */}
+        <primitive object={nodes.DVD_Case} />
 
-      {/* 盒子裡靜靜躺著一片裝飾用的碟——真正拿來選的那組是 DVDSelector，
-          開盒後在鏡頭前面用世界座標飛出來，不會被這個盒子的姿態影響。 */}
-      <DVD project={DECORATIVE_DISC_PROJECT} position={[0, 0, DISC_Z]} />
+        <primitive object={nodes.DVD_Case_Front} ref={frontRef} />
 
-      <group
-        name="dvd-case-front-cover-pivot"
-        ref={coverPivotRef}
-        position={[-DVD_CASE_WIDTH / 2, 0, DVD_CASE_DEPTH / 4]}
-      >
-        <mesh
-          name="dvd-case-front-cover"
-          position={[DVD_CASE_WIDTH / 2, 0, 0]}
-          castShadow
-          receiveShadow
-          onClick={handleToggleOpen}
-          onPointerOver={() => { document.body.style.cursor = 'pointer' }}
-          onPointerOut={() => { document.body.style.cursor = 'default' }}
-        >
-          <boxGeometry args={[DVD_CASE_WIDTH, DVD_CASE_HEIGHT, DVD_CASE_DEPTH / 2]} />
-          <meshStandardMaterial color="#4a4a60" roughness={0.3} />
-        </mesh>
+        {/* 盒子裡靜靜躺著一片裝飾用的碟——真正拿來選的那組是 DVDSelector，
+            開盒後在鏡頭前面用世界座標飛出來，不會被這個盒子的姿態影響。
+            座標用跟 DVD_Case 原始 Blender 座標同一套（花瓣卡榫中心在
+            (CASE_WIDTH/2, CASE_HEIGHT/2)），這樣才會跟上面 primitive 一起
+            被外層的置中 group 帶到正確位置——不能改用 (0,0)，那是置中
+            "群組本身" 的量，不是花瓣卡榫在群組座標系裡的位置。 */}
+        <DVD
+          project={DECORATIVE_DISC_PROJECT}
+          position={[DVD_CASE_WIDTH / 2, DVD_CASE_HEIGHT / 2, DISC_REST_Z]}
+        />
       </group>
     </group>
   )
 }
+
+useGLTF.preload('/models/dvd-case.glb')
