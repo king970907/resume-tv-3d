@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react'
-import gsap from 'gsap'
+import { useEffect } from 'react'
 import { FULLSCREEN_OVERLAY_FADE_DURATION } from '@/cores/const/screen'
 import type { ScreenPage } from '@/data/screenPages'
 import styles from './FullscreenOverlay.module.css'
@@ -16,9 +15,12 @@ interface FullscreenOverlayProps {
 // 點擊螢幕、鏡頭運鏡貼近後切換成的真 2D 疊層——蓋滿整個瀏覽器視窗，內容
 // 比 3D 貼圖版本銳利，跟 canvas 貼圖（screenCanvas.ts）共用同一份
 // ScreenPage 資料，兩邊配色/文字要對得上。
+//
+// 登場/退場只靠簡單的 CSS opacity transition（見下面 .overlay）淡入淡出
+// ——原本試過在登場時額外疊一層 gsap 閃爍當「訊號鎖定」的收尾效果，使用
+// 者反應閃爍感太強、不舒服，拿掉了。zoom-loading 階段的雜訊已經足夠
+// 表達「訊號切換」，這層疊層不需要再自己閃一次。
 export function FullscreenOverlay({ page, fadingOut, onClose }: FullscreenOverlayProps) {
-  const flickerRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -26,34 +28,6 @@ export function FullscreenOverlay({ page, fadingOut, onClose }: FullscreenOverla
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
-
-  useEffect(() => {
-    // 這個元件只在 phase 進到 'fullscreen' 的當下才會掛載（見
-    // MainScene.tsx 的條件渲染），所以「掛載」本身就是「登場」的時機，
-    // 不用另外判斷 fadingOut——退場（fadingOut=true）是同一個元件實例
-    // 重新渲染，不會重新觸發這個 effect。
-    //
-    // 疊層本身的淡入淡出是 CSS transition（見下面 .overlay 的
-    // transitionDuration），這裡疊加一層快速閃爍——選片點擊螢幕→運鏡→
-    // 雜訊→切全螢幕這條路，雜訊(zoom-loading)已經在 3D 螢幕貼圖上演過
-    // 一次「訊號不穩」，切到這層 DOM 疊層的瞬間再閃一下同色系的光，感覺
-    // 像「訊號正式鎖定」的收尾，不是無中生有的裝飾。用 steps() 這種
-    // 離散、不平滑的 ease 是刻意的——平滑的 power/sine 曲線閃爍看起來
-    // 像呼吸燈，steps() 才有數位訊號忽亮忽暗的頓挫感。
-    const flicker = flickerRef.current
-    if (!flicker) return
-    gsap.set(flicker, { opacity: 1 })
-    const timeline = gsap.timeline()
-    timeline
-      .to(flicker, { opacity: 0.1, duration: 0.05, ease: 'steps(1)' })
-      .to(flicker, { opacity: 0.75, duration: 0.04, ease: 'steps(1)' })
-      .to(flicker, { opacity: 0.05, duration: 0.05, ease: 'steps(1)' })
-      .to(flicker, { opacity: 0.4, duration: 0.04, ease: 'steps(1)' })
-      .to(flicker, { opacity: 0, duration: 0.18, ease: 'power1.out' })
-    return () => {
-      timeline.kill()
-    }
-  }, [])
 
   return (
     <div
@@ -78,10 +52,6 @@ export function FullscreenOverlay({ page, fadingOut, onClose }: FullscreenOverla
         <p className={styles.title} style={{ color: page.accentColor }}>{page.title}</p>
         <p className={styles.subtitle}>{page.subtitle}</p>
       </div>
-
-      {/* 登場閃爍層——蓋在最上面但不擋點擊，動畫跑完就停在 opacity:0，
-          不用額外卸載，反正 fadingOut 退場時也不會再摸到它。 */}
-      <div ref={flickerRef} className={styles.flicker} style={{ background: page.accentColor }} />
     </div>
   )
 }
