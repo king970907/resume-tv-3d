@@ -49,12 +49,14 @@ export const TV_POSITION: [number, number, number] = [0, DVD_PLAYER_HEIGHT + TV_
 // 是 TV_POSITION.z 算式本來就假設好的，兩邊要對得上。
 export const DVD_PLAYER_POSITION: [number, number, number] = [0, 0, 0.17]
 
-// 選片後選中的碟片要飛向的世界座標——大概對準 tray 打開時、靠近鏡頭那端
-// 的位置（tray 本地座標約 (0, 0.039, -0.132)，套用 DVD_PLAYER_POSITION/
-// 180°翻轉換算成世界座標約 (0, 0.039, 0.302)，這裡取整、留一點餘裕，
-// 實際數字有再對照瀏覽器畫面微調）。碟片不用真的精確卡進 tray 凹槽，
-// 飛到這附近同時配合縮小、tray 關起來遮住，視覺上就夠說服人了。
-export const DVD_TRAY_INSERT_POSITION: [number, number, number] = [0, 0.045, 0.28]
+// 選片後選中的碟片要飛向的世界座標——瀏覽器直接量 DVD_Tray_Base（碟片
+// 實際會躺的那塊平台）的世界座標邊界框量出來的：X 落在 [-0.124, 0.124]、
+// Y 落在 [0.039, 0.044]（頂面）、Z 落在 [0.082, 0.302]，置中點是
+// (0, 0.0415, 0.192)。原本這裡用「tray 前端」的 z≈0.28 當目標，太靠近
+// 平台最前緣（max=0.302），畫面上看起來像碟片卡在托盤前端快掉出來，不是
+// 躺在托盤中間——改成用平台中心的 z，Y 維持在頂面高度，才是碟片真正該
+// 躺的地方。
+export const DVD_TRAY_INSERT_POSITION: [number, number, number] = [0, 0.044, 0.19]
 
 // DVD 盒改成平放在 TV 頂面上，隨性斜放（不再是站著靠在 TV 側邊那套姿態，
 // 那套「底部支點、傾角算物理」的設計已經拿掉）。TV 頂面世界座標 y =
