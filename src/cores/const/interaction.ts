@@ -1,7 +1,12 @@
 // 點擊觸發的部件動畫共用調校參數（tray、旋鈕、DVD 盒）。放同一個檔案是因為
 // 這些數字之後會互相比對、一起調——見 CLAUDE.md 的 Phase 計畫。
 
-export const DVD_TRAY_OPEN_DISTANCE = 0.14 // tray 沿 +Z 滑出的距離（公尺）
+// tray 沿 +Z 滑出的距離（公尺）。原本 0.14——瀏覽器量過 DVD_Tray 世界座標
+// 邊界框才發現這個值只讓 tray 平台（DVD_Tray_Base，本身縱深約 0.22m）
+// 露出機身正面約 56%，看起來像「滑開一半」，不是真的彈出來。改成 0.2，
+// 讓平台露出比例提高到約 83%，同時後緣還留一點點（約 17%）疊在機身裡，
+// 視覺上還是「卡在滑軌裡」沒有整個脫離機身，比較像真的 DVD 托盤彈出。
+export const DVD_TRAY_OPEN_DISTANCE = 0.2
 export const DVD_TRAY_ANIM_DURATION = 0.5 // 秒
 
 // 預設4格（每次點擊轉90°：0°→90°→180°→270°→繞回0°）——先讓旋鈕機構本身
@@ -24,6 +29,16 @@ export const DVD_SELECTOR_DISTANCE = 1 // 碟片扇形排列的中心離鏡頭�
 export const DVD_SELECTOR_ARC_SPACING = 0.45 // 每片碟沿鏡頭「右方向」展開的間距
 export const DVD_SELECTOR_SCALE = 2 // 飛到選片位置後放大幾倍，原尺寸在這個距離下太小看不清楚
 export const DVD_SELECTOR_FLY_DURATION = 0.6 // 秒，飛出/收回的動畫時間
+// 沒被選中的碟片收起來（原地縮小消失）的時間——比飛出來短，退場俐落一點。
+// 選片後這個常數還有第二個用途：被選中那一片要等其他兩片先縮小完、徹底
+// 消失之後才開始自己的放片動畫（見 DVDSelector.tsx 的 insertingProjectId
+// 分支）。原本兩邊是同時開始的，被選中的那片還沒開始移動、尺寸也還沒縮小
+// 完，跟旁邊還沒完全消失的另外兩片距離太近（DVD_SELECTOR_ARC_SPACING
+// 只有 0.45，放大到 DVD_SELECTOR_SCALE 倍的碟片彼此靠得很近），畫面上
+// 看起來像選中的那片突然變大蓋到旁邊——實際上是三片一起還很大、還沒
+// 分開的錯覺。改成先後順序，旁邊兩片完全消失之後，畫面清空了，被選中的
+// 那片才開始動，就不會有互相重疊的錯覺。
+export const DVD_SELECTOR_RETRACT_DURATION = DVD_SELECTOR_FLY_DURATION * 0.6 // 秒
 export const SCENE_DIM_FACTOR = 0.15 // 選片時場景燈光乘上這個係數（趨近全黑但留一點層次）
 export const SCENE_DIM_DURATION = 0.4 // 秒，燈光暗下/恢復的時間
 

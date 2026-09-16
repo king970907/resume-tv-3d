@@ -18,6 +18,7 @@ import {
   DVD_SELECTOR_DISTANCE,
   DVD_SELECTOR_FLY_DURATION,
   DVD_SELECTOR_HOVER_SNAP_DURATION,
+  DVD_SELECTOR_RETRACT_DURATION,
   DVD_SELECTOR_SCALE,
   DVD_SELECTOR_SPIN_SPEED_X,
   DVD_SELECTOR_SPIN_SPEED_Y,
@@ -65,6 +66,20 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
   const spinGroupRefs = useRef<(Group | null)[]>([])
   const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
   const backdropRef = useRef<Mesh>(null)
+  // 記錄「放片 timeline 已經幫這片碟片開始了」——insertingProjectId 這個
+  // prop 在整段放片流程中維持同一個值不變，但下面這個 effect 的依賴之一
+  // （isOpen/discsReady）在流程開始當下會先是過渡用的舊值、再變成同步後
+  // 的新值，同一個 insertingProjectId 期間 effect 因此會連續 re-run 兩次
+  // （見下面 effect 內的長註解）。如果每次 re-run 都不分青紅皂白重新對
+  // 這片碟片 gsap.killTweensOf + 建一個新 timeline，第一個 timeline的
+  // position/scale tween 會被第二次的 killTweensOf 砍斷——被砍斷的 tween
+  // 會直接從 timeline 移除，导致 timeline 自己算出來的總長度跟著縮短，
+  // 使第一個 timeline 的 onComplete（把碟片 visible 設 false）在正確的
+  // 放下動畫還沒播完時就提前觸發，碟片會在半空中直接消失，不是真的放到
+  // 插槽裡才消失。用這個 ref 記住「這個 index 的碟片已經在跑放片 timeline
+  // 了」，同一個 insertingProjectId 期間第二次 re-run 直接跳過，讓第一個
+  // timeline 完整跑完，不要重新殺一次 tween、建一個新的。
+  const insertStartedRef = useRef<boolean[]>(PROJECTS.map(() => false))
 
   useEffect(() => {
     // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
@@ -90,10 +105,34 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
       const group = discGroupRefs.current[i]
       if (!group) return
 
+      // 放片 timeline 一旦為這片碟片開始了，就不要再被同一個
+      // insertingProjectId 期間的第二次 effect re-run 打斷——見上面
+      // insertStartedRef 宣告處的說明。直接 return，連 killTweensOf 都
+      // 不做，讓已經在跑的 timeline 自己跑完、自己在 onComplete 收尾。
+      if (insertingProjectId === project.id && insertStartedRef.current[i]) {
+        return
+      }
+      // 碟片不再是「正在放片」的那一片（放片流程還沒開始，或已經結束回到
+      // null）——重置旗標，下次這片被選中時才能重新啟動放片 timeline。
+      if (insertingProjectId !== project.id) {
+        insertStartedRef.current[i] = false
+      }
+
       gsap.killTweensOf(group.position)
       gsap.killTweensOf(group.scale)
 
-      if (isOpen) {
+      // isOpen 這個 prop（Experience.tsx 傳進來的 discsReady）是透過另一個
+      // useEffect 跟 isDvdSelectorOpen 同步的，天生會晚一次 render——選片
+      // 當下 isDvdSelectorOpen/insertingProjectId 是同一個事件處理常式裡
+      // 同時設定的，但 discsReady 要等那個同步用的 effect 跑完才會跟著變
+      // false，中間會有一次 render 是「isOpen 還是舊的 true，
+      // insertingProjectId 已經是新值」這種不一致的組合。這裡如果只看
+      // isOpen 就進扇形展開分支，會在這個過渡瞬間把三片碟片全部重新
+      // fromTo 回「從鏡頭位置飛出、scale 從 0.2 長回去」的開場動畫，畫面
+      // 上看起來像選中的那片突然放大蓋到其他兩片（使用者回報的正是這個
+      // 現象）。多檢查 !insertingProjectId，只要放片流程已經開始，不管
+      // isOpen 傳進來是不是還沒同步到最新值，都不該再進扇形展開分支。
+      if (isOpen && !insertingProjectId) {
         const offset = (i - (PROJECTS.length - 1) / 2) * DVD_SELECTOR_ARC_SPACING
         const target = center.clone().add(right.clone().multiplyScalar(offset))
 
@@ -140,8 +179,17 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
         // 選片後被挑中的那一片——跟其他片一起收起來時，不是原地縮小消失
         // 也不是直線平移過去，是分三段的「拿起來、翻正放進去」動作（見
         // interaction.ts 裡三個 DVD_INSERT_*_DURATION 常數的說明）。
+        //
+        // 動畫延後 DVD_SELECTOR_RETRACT_DURATION 才開始——等旁邊另外兩片
+        // 完全縮小消失之後，這片才開始動。原本是同時開始，這片還沒開始
+        // 縮小/移動時，跟旁邊還在收縮中、尺寸都還很大的另外兩片距離太近
+        // （彼此只隔 DVD_SELECTOR_ARC_SPACING=0.45，放大到 DVD_SELECTOR_
+        // SCALE 倍的碟片本身就很大），畫面上看起來像選中的那片突然放大
+        // 蓋到旁邊——其實是三片都還沒完全分開的錯覺，不是真的有誰變大。
+        insertStartedRef.current[i] = true
         const spinGroup = spinGroupRefs.current[i]
         const timeline = gsap.timeline({
+          delay: DVD_SELECTOR_RETRACT_DURATION,
           onComplete: () => {
             group.visible = false
           },
@@ -220,7 +268,7 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
           x: 0,
           y: 0,
           z: 0,
-          duration: DVD_SELECTOR_FLY_DURATION * 0.6,
+          duration: DVD_SELECTOR_RETRACT_DURATION,
           ease: 'power2.in',
           onComplete: () => {
             group.visible = false
