@@ -14,7 +14,11 @@
 //   idle         螢幕顯示畫面內容，使用者可以自由轉鏡頭、按旋鈕換頁
 //     └─(使用者點擊螢幕)─▶ zooming-in
 //   zooming-in   鏡頭快速運鏡貼近螢幕
-//     └─(運鏡完成，Experience 觸發)─▶ fullscreen
+//     └─(運鏡完成，Experience 觸發)─▶ zoom-loading
+//   zoom-loading 螢幕貼圖畫雜訊，鏡頭維持貼近螢幕的姿態不動——跟開場的
+//                loading 是同一種「訊號切換」感覺，但這裡是「點螢幕準備
+//                全螢幕」的過場，不是「電視剛開機」，兩個階段分開命名。
+//     └─(等待固定時間，Experience 觸發)─▶ fullscreen
 //   fullscreen   真正的 2D DOM 疊層蓋滿視窗，3D 鏡頭停在貼近螢幕的位置
 //     └─(使用者關閉 FullscreenOverlay)─▶ zooming-out
 //   zooming-out  疊層淡出 + 鏡頭運鏡退回聚焦姿態
@@ -25,5 +29,6 @@ export type ScreenPhase =
   | 'loading'
   | 'idle'
   | 'zooming-in'
+  | 'zoom-loading'
   | 'fullscreen'
   | 'zooming-out'

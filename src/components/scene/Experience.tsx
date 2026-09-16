@@ -26,6 +26,7 @@ import {
   CAMERA_ZOOM_TARGET,
   INTRO_LOADING_DURATION,
   SCREEN_ZOOM_IN_DURATION,
+  SCREEN_ZOOM_LOADING_DURATION,
   SCREEN_ZOOM_OUT_DURATION,
 } from '@/cores/const/screen'
 import { getResponsiveCameraPosition } from '@/cores/utils/responsiveCamera'
@@ -247,7 +248,7 @@ export function Experience({
       gsap.killTweensOf(camera)
       gsap.killTweensOf(controls.target)
       const zoomPosition = getResponsiveCameraPosition(CAMERA_ZOOM_POSITION, CAMERA_ZOOM_TARGET, aspect)
-      const timeline = gsap.timeline({ onComplete: () => onPhaseChange('fullscreen') })
+      const timeline = gsap.timeline({ onComplete: () => onPhaseChange('zoom-loading') })
       timeline.to(
         camera.position,
         { x: zoomPosition.x, y: zoomPosition.y, z: zoomPosition.z, duration: SCREEN_ZOOM_IN_DURATION, ease: 'power2.in' },
@@ -268,6 +269,16 @@ export function Experience({
       timeline.to(camera, { fov: CAMERA_ZOOM_FOV, duration: SCREEN_ZOOM_IN_DURATION, ease: 'power2.in', onUpdate: () => camera.updateProjectionMatrix() }, 0)
       return () => {
         timeline.kill()
+      }
+    }
+
+    if (phase === 'zoom-loading') {
+      // 鏡頭這階段不用動——已經貼近螢幕了，只是讓螢幕貼圖閃一下雜訊
+      // （screenContent 那段邏輯會處理），過場感覺像「訊號切過去」，
+      // 才切到全螢幕 DOM 疊層。
+      const timer = gsap.delayedCall(SCREEN_ZOOM_LOADING_DURATION, () => onPhaseChange('fullscreen'))
+      return () => {
+        timer.kill()
       }
     }
 
@@ -318,12 +329,14 @@ export function Experience({
   }
 
   // 螢幕現在該顯示什麼——intro/focusing 兩個階段螢幕是關的（黑），loading
-  // 階段或旋鈕換頁中都畫雜訊，其餘階段（idle/zooming-in/fullscreen/
+  // /zoom-loading 兩個階段或旋鈕換頁中都畫雜訊（開場的「電視開機」跟點
+  // 螢幕的「切全螢幕」是兩個不同時機的過場，但畫面效果一樣是雜訊，共用
+  // 同一個 'loading' mode），其餘階段（idle/zooming-in/fullscreen/
   // zooming-out）顯示目前頁面內容。運鏡途中(zooming-in/out)、全螢幕疊層
   // 蓋著的時候螢幕內容其實不會被看到，但還是要維持顯示正確內容，運鏡回來
   // 時才不會閃一下錯誤畫面。
   const screenContent: ScreenContent =
-    phase === 'loading' || isChannelLoading
+    phase === 'loading' || phase === 'zoom-loading' || isChannelLoading
       ? { mode: 'loading' }
       : phase === 'intro' || phase === 'focusing'
         ? { mode: 'off' }

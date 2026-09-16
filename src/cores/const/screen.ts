@@ -24,6 +24,12 @@ export const CHANNEL_SWITCH_LOADING_DURATION = 0.45 // 秒
 // 使用者主動要「放大看」，動作要俐落，不要拖。
 export const SCREEN_ZOOM_IN_DURATION = 0.6 // 秒
 
+// 點擊螢幕運鏡貼近後，螢幕維持雜訊（zoom-loading 階段）的時間，之後才
+// 換成全螢幕 DOM 疊層——比開場的 INTRO_LOADING_DURATION 短很多，這裡是
+//「點螢幕準備進全螢幕」的過場閃頻，不是電視開機的等待感，拖太久反而
+// 讓使用者覺得卡頓。
+export const SCREEN_ZOOM_LOADING_DURATION = 0.35 // 秒
+
 // 全螢幕 DOM 疊層淡入/淡出的時間。
 export const FULLSCREEN_OVERLAY_FADE_DURATION = 0.35 // 秒
 
