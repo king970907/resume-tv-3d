@@ -30,9 +30,13 @@ interface DVDPlayerProps {
   // 打開又關上，不能只靠使用者自己點 tray 才會動。
   isOpen: boolean
   onToggle: () => void
+  // 把 tray 的 Object3D 實例回報給外面——DVDSelector 放片動畫最後一段
+  // 要把碟片 attach 到這個物件底下（見 DVDSelector.tsx 的說明），讓碟片
+  // 之後能跟著 tray 關閉的動畫一起移動，不用自己另外算一次位置。
+  onTrayReady?: (tray: Object3D | null) => void
 }
 
-export function DVDPlayer({ isOpen, onToggle }: DVDPlayerProps) {
+export function DVDPlayer({ isOpen, onToggle, onTrayReady }: DVDPlayerProps) {
   const { nodes } = useGLTF('/models/dvd-player.glb') as unknown as { nodes: GLTFNodes }
   const trayRef = useRef<Object3D>(null)
   const closedZRef = useRef(0)
@@ -40,6 +44,12 @@ export function DVDPlayer({ isOpen, onToggle }: DVDPlayerProps) {
   useEffect(() => {
     const tray = trayRef.current
     if (tray) closedZRef.current = tray.position.z
+    onTrayReady?.(tray)
+    return () => onTrayReady?.(null)
+    // onTrayReady 是呼叫端每次 render 現傳的箭頭函式，不是穩定參照——放進
+    // deps 只會讓這個 effect 每次 render 都重跑，沒有意義（tray 這個
+    // Object3D 實例本身在元件生命週期內不會變）。
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

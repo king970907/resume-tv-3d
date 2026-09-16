@@ -3,7 +3,7 @@ import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import { Vector3 } from 'three'
-import type { AmbientLight, DirectionalLight, PointLight } from 'three'
+import type { AmbientLight, DirectionalLight, Object3D, PointLight } from 'three'
 import { RetroTV } from '@/components/tv/RetroTV'
 import type { ScreenContent } from '@/components/tv/RetroTV'
 import { DVDPlayer } from '@/components/dvd/DVDPlayer'
@@ -87,6 +87,12 @@ export function Experience({
   const fillLightRef = useRef<DirectionalLight>(null)
   const accentLightRef = useRef<PointLight>(null)
   const selectorLightRef = useRef<PointLight>(null)
+  // DVDPlayer 掛載後回報自己的 tray Object3D——DVDSelector 放片動畫最後
+  // 一段要把碟片 attach 到這個物件底下，讓碟片能跟著 tray 關閉的動畫一起
+  // 移動（見 DVDSelector.tsx 裡用到這個 ref 的地方的說明）。用 ref 存、
+  // 不用 state，因為這個值只有 DVDSelector 的 gsap timeline 在碟片飛到位
+  // 那一刻才需要讀一次，不需要因為它變動觸發任何 re-render。
+  const trayObjectRef = useRef<Object3D | null>(null)
 
   // OrbitControls 直接掛在 canvas DOM 上監聽，跟 R3F 自己的事件系統是兩條
   // 線——選片期間、螢幕運鏡期間鏡頭都必須是「被程式控制」而不是使用者
@@ -456,6 +462,7 @@ export function Experience({
           if (phase !== 'idle' || insertingProjectId) return
           setIsDvdPlayerOpen((v) => !v)
         }}
+        onTrayReady={(tray) => { trayObjectRef.current = tray }}
       />
       <RetroTV
         pageCount={pageCount}
@@ -480,6 +487,7 @@ export function Experience({
       <DVDSelector
         isOpen={discsReady}
         insertingProjectId={insertingProjectId}
+        trayRef={trayObjectRef}
         onSelect={handleSelectProject}
         onClose={() => setIsDvdSelectorOpen(false)}
       />

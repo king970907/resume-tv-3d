@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
+import type { RefObject } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
 import { Quaternion, Vector3 } from 'three'
-import type { Group, Mesh } from 'three'
+import type { Group, Mesh, Object3D } from 'three'
 import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import { DVD_TRAY_INSERT_POSITION } from '@/cores/const/scene'
@@ -42,6 +43,10 @@ interface DVDSelectorProps {
   // 「收起來的那一片要不要走特殊的飛向 player 動畫，而不是跟其他片一樣
   // 直接原地縮小消失」。
   insertingProjectId: string | null
+  // DVDPlayer 掛載後回報的 tray Object3D（見 DVDPlayer.tsx 的 onTrayReady）
+  // ——碟片放到 tray 上之後要 attach 到這個物件底下，讓它之後能跟著 tray
+  // 關閉的動畫一起移動，不用自己重新算一次「tray 現在滑到哪裡了」。
+  trayRef: RefObject<Object3D | null>
   onSelect: (project: Project) => void
   // 點擊碟片以外的地方（黑色背景）要能取消選片——這個 callback 就是拿來
   // 關閉整個選片畫面用的，不選任何一片。
@@ -60,12 +65,27 @@ const BACKDROP_SIZE = 30
 //   這個元件故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
 // - 內層（spinGroupRefs）負責閒置自轉，跟外層的位置/朝向動畫分開算，不會
 //   互相干擾：外層負責「面向鏡頭」，內層負責「原地慢慢轉」。
-export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: DVDSelectorProps) {
+export function DVDSelector({ isOpen, insertingProjectId, trayRef, onSelect, onClose }: DVDSelectorProps) {
   const camera = useThree((state) => state.camera)
   const discGroupRefs = useRef<(Group | null)[]>([])
   const spinGroupRefs = useRef<(Group | null)[]>([])
   const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
   const backdropRef = useRef<Mesh>(null)
+  // 每片碟片「原本」（沒被 attach 進 tray 之前）的世界空間 parent——放片
+  // 動畫最後會把碟片 attach 到 tray 底下（見下面 insertingProjectId 分支），
+  // 這片碟片之後的 local position 就變成「相對 tray」而不是「相對世界」。
+  // 下次同一片又被選中、要重新用扇形展開那組世界座標（camera.position 等）
+  // 算 position 之前，得先把它 attach 回這個原本的 parent，不然世界座標
+  // 數字會被誤當成 tray 的 local 座標，飛到完全錯的地方。掛載後只需要抓
+  // 一次（碟片一開始的 parent 是 R3F 依照 JSX 結構掛好的，之後不會自己
+  // 變），所以用另一個 effect 在 mount 時存一次就好。
+  const worldParentRefs = useRef<(Object3D | null)[]>(PROJECTS.map(() => null))
+
+  useEffect(() => {
+    discGroupRefs.current.forEach((group, i) => {
+      if (group) worldParentRefs.current[i] = group.parent
+    })
+  }, [])
   // 記錄「放片 timeline 已經幫這片碟片開始了」——insertingProjectId 這個
   // prop 在整段放片流程中維持同一個值不變，但下面這個 effect 的依賴之一
   // （isOpen/discsReady）在流程開始當下會先是過渡用的舊值、再變成同步後
@@ -133,6 +153,16 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
       // 現象）。多檢查 !insertingProjectId，只要放片流程已經開始，不管
       // isOpen 傳進來是不是還沒同步到最新值，都不該再進扇形展開分支。
       if (isOpen && !insertingProjectId) {
+        // 這片碟片上一輪放片流程如果走到底、被 attach 進 tray 過，parent
+        // 現在是 tray 不是原本的世界空間 parent——下面馬上要用
+        // camera.position 這種世界座標直接設 position，得先 attach 回
+        // 原本的 parent，不然這些世界座標會被當成「相對 tray」的 local
+        // 座標，飛到完全錯的地方（tray 本身有位移+180°旋轉）。
+        const worldParent = worldParentRefs.current[i]
+        if (worldParent && group.parent !== worldParent) {
+          worldParent.attach(group)
+        }
+
         const offset = (i - (PROJECTS.length - 1) / 2) * DVD_SELECTOR_ARC_SPACING
         const target = center.clone().add(right.clone().multiplyScalar(offset))
 
@@ -190,9 +220,6 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
         const spinGroup = spinGroupRefs.current[i]
         const timeline = gsap.timeline({
           delay: DVD_SELECTOR_RETRACT_DURATION,
-          onComplete: () => {
-            group.visible = false
-          },
         })
 
         // 第1段：原地縮小，從選片放大尺寸縮回接近原始大小，這時候還是
@@ -263,6 +290,22 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
           duration: DVD_INSERT_DROP_DURATION,
           ease: 'power2.in',
         })
+
+        // 碟片落到插槽之後不是馬上消失——使用者回報「放到 player 後，下一
+        // 偵就消失」，原本這裡是 timeline 的 onComplete 直接把 visible
+        // 設 false，跟 tray 關閉的動畫完全無關，看起來像碟片憑空消失，不是
+        // 跟著 player 一起收起來。改成把這個 group attach 進 tray 底下
+        // （three.js Object3D.attach 會保留目前的世界座標，重新算一次
+        // 相對 tray 的 local position，畫面上不會跳一下）。之後 tray 自己
+        // 關閉時的 position tween 會連帶把這個 group 也帶著移動，碟片才會
+        // 「跟著 player 一起關閉」而不是憑空消失。真正的隱藏交給下面
+        // insertingProjectId 變回 null 時的 else 分支（那邊會在 tray 開始
+        // 關閉的同時把碟片縮小到 0），視覺上就是「碟片跟著托盤一起縮小、
+        // 收回機身裡」。
+        timeline.call(() => {
+          const tray = trayRef.current
+          if (tray) tray.attach(group)
+        })
       } else {
         gsap.to(group.scale, {
           x: 0,
@@ -276,7 +319,7 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
         })
       }
     })
-  }, [isOpen, insertingProjectId, camera])
+  }, [isOpen, insertingProjectId, camera, trayRef])
 
   // 閒置自轉——不受 hover 影響的碟片，每幀累加內層 group 的 rotation。
   // hover 中的碟片被排除在外（見下面 hoveredRef 判斷），讓它維持
