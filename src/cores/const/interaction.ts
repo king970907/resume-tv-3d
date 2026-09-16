@@ -84,3 +84,7 @@ export const DVD_INSERT_SCALE_END = 1
 // 碟片/tray 都到定位之後，多停頓一下再關 tray，讓使用者看得出「碟片已經
 // 放進去了」，不是碟片一到位 tray 馬上關、動作黏在一起分不清楚。
 export const DVD_INSERT_SETTLE_PAUSE = 0.2 // 秒
+
+// player 上 LED 燈號「已就緒」狀態的呼吸動畫一個週期要多久——光碟放進去
+// 但還沒按播放時，用這個燈號提示使用者「這裡可以按」，見 DVDPlayer.tsx。
+export const DVD_LED_PULSE_DURATION = 1.1 // 秒

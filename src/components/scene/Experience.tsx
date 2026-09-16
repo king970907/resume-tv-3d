@@ -62,26 +62,47 @@ const SELECTOR_LIGHT_INTENSITY = 1.5
 interface ExperienceProps {
   phase: ScreenPhase
   onPhaseChange: (phase: ScreenPhase) => void
-  pageCount: number
+  resumePageCount: number
+  projectPageCount: number
   page: ScreenPage
   isChannelLoading: boolean
-  onChannelChange: (index: number) => void
+  // 播放中（player 按了播放鍵）——鎖頻道旋鈕、解鎖音量旋鈕，往下傳給
+  // RetroTV；player 那邊的按鈕燈號也要看這個決定顏色。
+  isPlaying: boolean
+  // player 裡目前放的是哪個作品的光碟，沒放片是 null——不只決定按鈕燈號
+  // 亮不亮，也要原封不動往下傳給 DVDSelector：那邊要靠這個判斷「這片碟片
+  // 已經放好了，維持原樣（attach 在 tray 上、visible）」，不要被選片畫面
+  // 開合的邏輯誤判成沒人要而縮小隱藏（見 handleSelectProject 上面的說明、
+  // DVDSelector.tsx 裡用到這個 prop 的地方）。
+  loadedProjectId: string | null
+  onResumeChannelChange: (index: number) => void
+  onProjectChannelChange: (index: number) => void
+  onPlayPauseToggle: () => void
   // 選片放片流程整段（開 player -> 碟片飛進去 -> 關 player）跑完之後才
-  // 呼叫——把「螢幕該顯示這個作品了」的消息往上回報給 MainScene，跟
-  // onChannelChange 是平行的兩個「螢幕內容來源」，只是觸發時機不同
-  // （一個是旋鈕，一個是整段放片動畫跑完）。
-  onProjectInserted: (project: Project) => void
+  // 呼叫——把「player 裡放的是這個作品了」的消息往上回報給 MainScene。
+  // 改名自 onProjectInserted：現在放片完成不等於開始播放，螢幕還是顯示
+  // 履歷，要等使用者另外按播放鍵，用舊名字容易誤導成「放完就會顯示」。
+  onDiscLoaded: (project: Project) => void
 }
 
 export function Experience({
   phase,
   onPhaseChange,
-  pageCount,
+  resumePageCount,
+  projectPageCount,
   page,
   isChannelLoading,
-  onChannelChange,
-  onProjectInserted,
+  isPlaying,
+  loadedProjectId,
+  onResumeChannelChange,
+  onProjectChannelChange,
+  onPlayPauseToggle,
+  onDiscLoaded,
 }: ExperienceProps) {
+  // DVDPlayer 的按鈕燈號只需要「有沒有放片」這個布林值，不需要知道是哪個
+  // 作品——在這裡算一次，兩邊都用同一份 loadedProjectId 當唯一真相來源。
+  const hasDisc = loadedProjectId !== null
+
   const ambientRef = useRef<AmbientLight>(null)
   const keyLightRef = useRef<DirectionalLight>(null)
   const fillLightRef = useRef<DirectionalLight>(null)
@@ -359,9 +380,16 @@ export function Experience({
   //      insertingProjectId 那段邏輯）——三件事同時發生，不用互等。
   //   2. 等碟片飛到、tray 也開好之後，多停頓一下（DVD_INSERT_SETTLE_
   //      PAUSE，讓使用者看得出「碟片到位了」），才關 tray。
-  //   3. tray 關完，才通知 MainScene 螢幕該顯示這個作品——時機對在「tray
-  //      關起來」而不是「碟片一到位」，感覺才像「片子放好、機器關起來
-  //      準備開始播放」，不是碟片憑空消失螢幕就跳畫面。
+  //   3. 關 tray 的同時就呼叫 onDiscLoaded 通知 MainScene「player 裡放的
+  //      是這個作品了」——不再像螢幕會自動切換內容的舊設計那樣，故意等
+  //      tray 完全關完才通知（那是以前「放完片螢幕立刻顯示作品」的時機
+  //      設計，現在放片完成後螢幕仍顯示履歷，不需要等）。這裡故意跟
+  //      setInsertingProjectId(null) 同一個 tick 呼叫，是因為 DVDSelector
+  //      那邊要靠 loadedProjectId 這個 prop 判斷「這片碟片已經放好了，
+  //      不要縮小隱藏」——如果 onDiscLoaded 延後於 insertingProjectId
+  //      清空，會有一段時間兩個條件都不成立，讓碟片被誤判成「沒人要」而
+  //      縮小消失，事後手動點開 tray 會看到裡面是空的（實測發現的真正
+  //      bug，不是單純的時機美觀問題）。
   const handleSelectProject = (project: Project) => {
     // 正常操作下選片畫面收起來的當下碟片就不能再點了，不會重複觸發；
     // 這個保護主要是防呆（例如同一顆碟片的點擊事件在畫面更新前重複觸發
@@ -381,11 +409,7 @@ export function Experience({
     const closeTrayTimer = gsap.delayedCall(settleDelay, () => {
       setIsDvdPlayerOpen(false)
       setInsertingProjectId(null)
-
-      const revealTimer = gsap.delayedCall(DVD_TRAY_ANIM_DURATION, () => {
-        onProjectInserted(project)
-      })
-      insertTimersRef.current.push(revealTimer)
+      onDiscLoaded(project)
     })
     insertTimersRef.current.push(closeTrayTimer)
   }
@@ -463,12 +487,25 @@ export function Experience({
           setIsDvdPlayerOpen((v) => !v)
         }}
         onTrayReady={(tray) => { trayObjectRef.current = tray }}
+        hasDisc={hasDisc}
+        isPlaying={isPlaying}
+        onPlayPauseToggle={() => {
+          // 跟上面 tray 的 onToggle 用同一組門檻——運鏡中或放片流程進行中
+          // 都不給按，避免播放狀態跟正在跑的動畫序列互相打架。有沒有片
+          // 可以按（hasDisc）交給 MainScene 的 handlePlayPauseToggle 判斷，
+          // 這裡不重複檢查。
+          if (phase !== 'idle' || insertingProjectId) return
+          onPlayPauseToggle()
+        }}
       />
       <RetroTV
-        pageCount={pageCount}
+        resumePageCount={resumePageCount}
+        projectPageCount={projectPageCount}
         screenContent={screenContent}
         interactive={isScreenInteractive}
-        onChannelChange={onChannelChange}
+        isPlaying={isPlaying}
+        onResumeChannelChange={onResumeChannelChange}
+        onProjectChannelChange={onProjectChannelChange}
         onScreenClick={() => {
           if (phase === 'idle') onPhaseChange('zooming-in')
         }}
@@ -487,6 +524,7 @@ export function Experience({
       <DVDSelector
         isOpen={discsReady}
         insertingProjectId={insertingProjectId}
+        loadedProjectId={loadedProjectId}
         trayRef={trayObjectRef}
         onSelect={handleSelectProject}
         onClose={() => setIsDvdSelectorOpen(false)}

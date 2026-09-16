@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
@@ -22,16 +22,23 @@ export type ScreenContent =
   | { mode: 'page'; page: ScreenPage }
 
 interface RetroTVProps {
-  // 目前的頁數——預設 4（見 KNOB_DEFAULT_PAGE_COUNT，先讓旋鈕機構動起來）。
-  // 之後接上個人頁面資料，或插入 DVD 後 Step 3 傳作品數量進來，會換成真實
-  // 頁數。每格角度永遠是 360° / pageCount，公式不用改，換數字就好。
-  pageCount?: number
+  // 履歷頁數——頻道旋鈕（TV_Knob_Channel，物理位置較高）控制，每格角度
+  // 永遠是 360° / resumePageCount，公式不用改，換數字就好。
+  resumePageCount?: number
+  // 作品集頁數——音量旋鈕（TV_Knob_Volume，物理位置較低）控制。
+  projectPageCount?: number
   screenContent: ScreenContent
   // 開場運鏡、全螢幕運鏡期間要關掉旋鈕/螢幕的點擊——動畫途中使用者亂點
   // 會讓狀態機（MainScene）收到不該出現的事件，跟 DVDCase 選片期間鎖住
-  // OrbitControls 是同一個理由，只是這裡鎖的是旋鈕/螢幕本身的互動。
+  // OrbitControls 是同一個理由，只是這裡鎖的是旋鈕/螢幕本身的互動。這個
+  // 全域門檻對兩顆旋鈕都適用，isPlaying 再各自決定哪一顆真正能轉。
   interactive?: boolean
-  onChannelChange?: (index: number) => void
+  // 播放中（player 按了播放鍵、螢幕正在顯示作品集內容）——頻道旋鈕鎖定
+  // （履歷轉不動），音量旋鈕解鎖（可以切作品）；沒播放時剛好相反。跟真的
+  // 電視「切到 AV 輸入時，頻道旋鈕暫時沒作用」是同一種直覺。
+  isPlaying: boolean
+  onResumeChannelChange?: (index: number) => void
+  onProjectChannelChange?: (index: number) => void
   onScreenClick?: () => void
 }
 
@@ -52,30 +59,17 @@ type GLTFNodes = Record<string, Object3D>
 //   比 Rim 的半徑(約29mm)還遠，是旋鈕外側面板上的固定標示牌，跟刻度盤一樣不轉。
 //   這兩個維持留在 nodes.TV 的靜態階層裡，不額外抓出來接旋轉。
 
-export function RetroTV({
-  pageCount = KNOB_DEFAULT_PAGE_COUNT,
-  screenContent,
-  interactive = true,
-  onChannelChange,
-  onScreenClick,
-}: RetroTVProps) {
-  const { nodes } = useGLTF('/models/tv.glb') as unknown as { nodes: GLTFNodes }
-
-  // 會轉動的旋鈕本體3個子物件各自固定一個 ref（Ticks/Label 不轉，見上面說明，
-  // 不需要 ref）。
-  const channelRef = useRef<Object3D>(null)
+// 旋鈕的核心互動邏輯（累計點擊次數轉動、換算頁碼、gsap 補間）——頻道跟
+// 音量兩顆旋鈕的機構完全相同（見上面的說明，Blender 端用同一套車床剖面
+// 手法做的），只是控制的頁數/是否可互動/callback 不同，抽成一個 hook
+// 呼叫兩次，不用把整段 tween 邏輯複製貼上兩份。
+function useKnobRotation(pageCount: number, interactive: boolean, onChange?: (index: number) => void) {
+  // 會轉動的旋鈕本體3個子物件各自固定一個 ref（Ticks/Label 不轉，見上面
+  // 說明，不需要 ref）。
+  const primaryRef = useRef<Object3D>(null)
   const rimRef = useRef<Object3D>(null)
   const ringRef = useRef<Object3D>(null)
-  const yAxisRefs = [channelRef, rimRef, ringRef]
-
-  // 螢幕玻璃——抓出來單獨接貼圖，跟旋鈕一樣用 primitive+ref 的方式從
-  // nodes.TV 的靜態階層裡搬出來（three.js Object3D.add() 自動處理，不會
-  // 重複渲染兩次）。
-  const screenRef = useRef<Object3D>(null)
-  const screenCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const screenCtxRef = useRef<CanvasRenderingContext2D | null>(null)
-  const screenTextureRef = useRef<CanvasTexture | null>(null)
-  const noiseAccumMsRef = useRef(0)
+  const yAxisRefs = [primaryRef, rimRef, ringRef]
 
   // 累計「按過幾次」，永遠只增加、不取餘數——這是拿來算動畫目標角度用的，
   // 跟下面的邏輯頁碼（會用餘數繞回 0~pageCount-1）分開存。角度如果也取
@@ -83,11 +77,9 @@ export function RetroTV({
   // 變成往回轉一大圈，而不是照原本方向繼續多轉一格。
   const stepCountRef = useRef(0)
 
-  // GSAP 動畫進度用的代理物件——實際旋轉角度套到上面兩組 refs 的對應軸上，
-  // 這樣5個物件才能用同一條補間曲線同步轉動，不會各自跑各自的時間軸。
+  // GSAP 動畫進度用的代理物件——實際旋轉角度套到上面三組 refs 的對應軸上，
+  // 這樣3個物件才能用同一條補間曲線同步轉動，不會各自跑各自的時間軸。
   const spinProxyRef = useRef({ angle: 0 })
-
-  const [, setChannelIndex] = useState(0)
 
   useEffect(() => {
     // spinProxyRef.current 本身是 useRef 初始化時就固定的同一個物件（不是
@@ -98,6 +90,93 @@ export function RetroTV({
       gsap.killTweensOf(proxy)
     }
   }, [])
+
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    // 不喊停的話，這條射線還是會繼續往後面傳，打到後面的 DVD player 也把
+    // 它的 handler 一起觸發——跟 DVDPlayer 那邊 handleClick 的修正對稱。
+    event.stopPropagation()
+
+    if (!interactive) return
+
+    // 頁數是 0 代表還沒有真正的內容可以切（資料層還沒接上）——旋鈕維持
+    // 可以點、有 hover 游標，但點了不會動，不要除以 0 也不要假裝有內容。
+    if (pageCount <= 0) return
+
+    gsap.killTweensOf(spinProxyRef.current)
+
+    // 用 ref 存目前累計次數（不是直接讀 state），避免快速連續點擊時吃到還
+    // 沒更新完的舊值——setState 是非同步的，這裡需要的是「當下真正的次數」。
+    stepCountRef.current += 1
+    const pageIndex = stepCountRef.current % pageCount
+    onChange?.(pageIndex)
+
+    // 目標角度用累計次數算，不是用 pageIndex（繞回 0 之後的餘數）算——
+    // 這樣不管繞了幾圈，每次點擊的動畫永遠是「照原本方向多轉一格」。
+    // 正號（不是負號）——實測驗證過，這樣點擊順序才是 90°→180°→270°→0°，
+    // 不是反方向的 270°→180°→90°→0°。
+    const stepAngle = (Math.PI * 2) / pageCount
+    const targetAngle = stepCountRef.current * stepAngle
+
+    gsap.to(spinProxyRef.current, {
+      angle: targetAngle,
+      duration: KNOB_STEP_DURATION,
+      ease: 'back.out(1.7)',
+      onUpdate: () => {
+        const angle = spinProxyRef.current.angle
+        for (const ref of yAxisRefs) {
+          if (ref.current) ref.current.rotation.y = angle
+        }
+      },
+    })
+  }
+
+  const eventHandlers = {
+    onClick: handleClick,
+    onPointerOver: () => { if (interactive) document.body.style.cursor = 'pointer' },
+    onPointerOut: () => { document.body.style.cursor = 'default' },
+  }
+
+  return { primaryRef, rimRef, ringRef, eventHandlers }
+}
+
+export function RetroTV({
+  resumePageCount = KNOB_DEFAULT_PAGE_COUNT,
+  projectPageCount = KNOB_DEFAULT_PAGE_COUNT,
+  screenContent,
+  interactive = true,
+  isPlaying,
+  onResumeChannelChange,
+  onProjectChannelChange,
+  onScreenClick,
+}: RetroTVProps) {
+  const { nodes } = useGLTF('/models/tv.glb') as unknown as { nodes: GLTFNodes }
+
+  // 播放中鎖頻道旋鈕、解鎖音量旋鈕，沒播放時相反——見 RetroTVProps.isPlaying
+  // 的說明。全域 interactive 門檻（運鏡中/選片中）對兩顆旋鈕都要滿足。
+  // 解構成一個個變數（不是直接用 resumeKnob.xxxRef 存取）是為了讓下面
+  // JSX 裡的 ref 都是單純的變數，不是成員存取表達式——oxlint 的
+  // react/refs 規則對後者會誤判成「render 期間存取 ref.current」。
+  const {
+    primaryRef: resumeKnobRef,
+    rimRef: resumeKnobRimRef,
+    ringRef: resumeKnobRingRef,
+    eventHandlers: resumeKnobHandlers,
+  } = useKnobRotation(resumePageCount, interactive && !isPlaying, onResumeChannelChange)
+  const {
+    primaryRef: projectKnobRef,
+    rimRef: projectKnobRimRef,
+    ringRef: projectKnobRingRef,
+    eventHandlers: projectKnobHandlers,
+  } = useKnobRotation(projectPageCount, interactive && isPlaying, onProjectChannelChange)
+
+  // 螢幕玻璃——抓出來單獨接貼圖，跟旋鈕一樣用 primitive+ref 的方式從
+  // nodes.TV 的靜態階層裡搬出來（three.js Object3D.add() 自動處理，不會
+  // 重複渲染兩次）。
+  const screenRef = useRef<Object3D>(null)
+  const screenCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const screenCtxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const screenTextureRef = useRef<CanvasTexture | null>(null)
+  const noiseAccumMsRef = useRef(0)
 
   // 螢幕貼圖初始化——只做一次，canvas/材質/貼圖都是固定資源，內容變化
   // 交給下面另一個 effect 跟 useFrame 處理，不用每次重建。
@@ -205,52 +284,6 @@ export function RetroTV({
     texture.needsUpdate = true
   })
 
-  const handleKnobClick = (event: ThreeEvent<MouseEvent>) => {
-    // 不喊停的話，這條射線還是會繼續往後面傳，打到後面的 DVD player 也把
-    // 它的 handler 一起觸發——跟 DVDPlayer 那邊 handleClick 的修正對稱。
-    event.stopPropagation()
-
-    if (!interactive) return
-
-    // 頁數是 0 代表還沒有真正的內容可以切（資料層還沒接上）——旋鈕維持
-    // 可以點、有 hover 游標，但點了不會動，不要除以 0 也不要假裝有內容。
-    if (pageCount <= 0) return
-
-    gsap.killTweensOf(spinProxyRef.current)
-
-    // 用 ref 存目前累計次數（不是直接讀 state），避免快速連續點擊時吃到還
-    // 沒更新完的舊值——setState 是非同步的，這裡需要的是「當下真正的次數」。
-    stepCountRef.current += 1
-    const pageIndex = stepCountRef.current % pageCount
-    setChannelIndex(pageIndex)
-    onChannelChange?.(pageIndex)
-
-    // 目標角度用累計次數算，不是用 pageIndex（繞回 0 之後的餘數）算——
-    // 這樣不管繞了幾圈，每次點擊的動畫永遠是「照原本方向多轉一格」。
-    // 正號（不是負號）——實測驗證過，這樣點擊順序才是 90°→180°→270°→0°，
-    // 不是反方向的 270°→180°→90°→0°。
-    const stepAngle = (Math.PI * 2) / pageCount
-    const targetAngle = stepCountRef.current * stepAngle
-
-    gsap.to(spinProxyRef.current, {
-      angle: targetAngle,
-      duration: KNOB_STEP_DURATION,
-      ease: 'back.out(1.7)',
-      onUpdate: () => {
-        const angle = spinProxyRef.current.angle
-        for (const ref of yAxisRefs) {
-          if (ref.current) ref.current.rotation.y = angle
-        }
-      },
-    })
-  }
-
-  const knobEventHandlers = {
-    onClick: handleKnobClick,
-    onPointerOver: () => { if (interactive) document.body.style.cursor = 'pointer' },
-    onPointerOut: () => { document.body.style.cursor = 'default' },
-  }
-
   const handleScreenClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
     if (!interactive) return
@@ -271,11 +304,18 @@ export function RetroTV({
           從這裡的階層搬過去，不會重複渲染兩次。 */}
       <primitive object={nodes.TV} />
 
-      <primitive object={nodes.TV_Knob_Channel} ref={channelRef} {...knobEventHandlers} />
-      <primitive object={nodes.TV_Knob_Channel_Rim} ref={rimRef} {...knobEventHandlers} />
-      <primitive object={nodes.TV_Knob_Channel_Ring} ref={ringRef} {...knobEventHandlers} />
+      {/* 頻道旋鈕——履歷 Resume 1~3，物理位置較高。 */}
+      <primitive object={nodes.TV_Knob_Channel} ref={resumeKnobRef} {...resumeKnobHandlers} />
+      <primitive object={nodes.TV_Knob_Channel_Rim} ref={resumeKnobRimRef} {...resumeKnobHandlers} />
+      <primitive object={nodes.TV_Knob_Channel_Ring} ref={resumeKnobRingRef} {...resumeKnobHandlers} />
+
+      {/* 音量旋鈕——作品集 Project 1~3，物理位置較低，只有播放中才解鎖
+          （見 useKnobRotation 呼叫處）。 */}
+      <primitive object={nodes.TV_Knob_Volume} ref={projectKnobRef} {...projectKnobHandlers} />
+      <primitive object={nodes.TV_Knob_Volume_Rim} ref={projectKnobRimRef} {...projectKnobHandlers} />
+      <primitive object={nodes.TV_Knob_Volume_Ring} ref={projectKnobRingRef} {...projectKnobHandlers} />
       {/* Ticks（刻度盤）跟 Label（標示牌）都不抓出來——維持留在 nodes.TV 的
-          靜態階層裡，本來就不轉，也不用額外處理。 */}
+          靜態階層裡，本來就不轉，也不用額外處理（兩顆旋鈕都一樣）。 */}
 
       <primitive
         object={nodes.TV_Screen_Glass}

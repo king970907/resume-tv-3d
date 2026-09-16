@@ -43,6 +43,11 @@ interface DVDSelectorProps {
   // 「收起來的那一片要不要走特殊的飛向 player 動畫，而不是跟其他片一樣
   // 直接原地縮小消失」。
   insertingProjectId: string | null
+  // player 裡目前已經放好的是哪個作品的碟片，沒放片是 null——放片流程
+  // 跑完之後（insertingProjectId 變回 null）這片碟片不能再走「其他片」
+  // 那條縮小隱藏的分支，要維持原樣留在 tray 上（見下面 effect 內的判斷），
+  // 不然使用者事後手動點開 tray，裡面會是空的（實測到的真正 bug）。
+  loadedProjectId: string | null
   // DVDPlayer 掛載後回報的 tray Object3D（見 DVDPlayer.tsx 的 onTrayReady）
   // ——碟片放到 tray 上之後要 attach 到這個物件底下，讓它之後能跟著 tray
   // 關閉的動畫一起移動，不用自己重新算一次「tray 現在滑到哪裡了」。
@@ -65,7 +70,7 @@ const BACKDROP_SIZE = 30
 //   這個元件故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
 // - 內層（spinGroupRefs）負責閒置自轉，跟外層的位置/朝向動畫分開算，不會
 //   互相干擾：外層負責「面向鏡頭」，內層負責「原地慢慢轉」。
-export function DVDSelector({ isOpen, insertingProjectId, trayRef, onSelect, onClose }: DVDSelectorProps) {
+export function DVDSelector({ isOpen, insertingProjectId, loadedProjectId, trayRef, onSelect, onClose }: DVDSelectorProps) {
   const camera = useThree((state) => state.camera)
   const discGroupRefs = useRef<(Group | null)[]>([])
   const spinGroupRefs = useRef<(Group | null)[]>([])
@@ -100,6 +105,20 @@ export function DVDSelector({ isOpen, insertingProjectId, trayRef, onSelect, onC
   // 了」，同一個 insertingProjectId 期間第二次 re-run 直接跳過，讓第一個
   // timeline 完整跑完，不要重新殺一次 tween、建一個新的。
   const insertStartedRef = useRef<boolean[]>(PROJECTS.map(() => false))
+  // 記錄「這片碟片的放片 timeline 已經完整跑完、attach 在 tray 上了」，
+  // 在 timeline 自己的 .call() 裡同步設定（見下面 insertingProjectId 分支
+  // 尾端）——不能改用 loadedProjectId 這個外部 prop 判斷「已經放好了」：
+  // loadedProjectId 來自 Experience/MainScene（react-dom root），這個
+  // 元件在 react-three-fiber 的 Canvas root 裡，即使呼叫端把
+  // setInsertingProjectId(null) 跟更新 loadedProjectId 的 setState 放在
+  // 同一個同步流程裡呼叫，React 並不保證兩個 root 在同一個 commit 處理
+  // 完——實測過（暫時加 log 才抓到）真的會有一次 render 是
+  // insertingProjectId 已經變 null、loadedProjectId 卻還是舊值，這個
+  // 元件如果靠 loadedProjectId 判斷「該不該維持原樣」，就會在這個過渡
+  // 瞬間誤判成「沒人要」而把剛放好的碟片縮小隱藏——這正是使用者回報
+  // 「再次點開 player 裡面是空的」的根因。改用這個 ref，由 timeline 自己
+  // 在真正完成的當下同步設定，不受外部 prop 更新時機影響，才可靠。
+  const insertCompletedRef = useRef<boolean[]>(PROJECTS.map(() => false))
 
   useEffect(() => {
     // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
@@ -136,6 +155,22 @@ export function DVDSelector({ isOpen, insertingProjectId, trayRef, onSelect, onC
       // null）——重置旗標，下次這片被選中時才能重新啟動放片 timeline。
       if (insertingProjectId !== project.id) {
         insertStartedRef.current[i] = false
+      }
+
+      // 這片碟片之前已經完整放片完成、attach 在 tray 上了，而且現在沒有
+      // 正在對它跑放片 timeline——維持原樣（scale=1、visible=true），
+      // 不要被下面「isOpen 就扇形展開／否則縮小隱藏」的邏輯誤判成沒人
+      // 選中而縮小消失（見上面 insertCompletedRef 宣告處的說明）。只有
+      // 在 loadedProjectId 明確指向「別的作品」時才代表這片被取代了，
+      // 清掉旗標讓它照正常邏輯（多半是落進下面的 else 分支）退場；
+      // loadedProjectId 還沒同步到（暫時是 null）的過渡瞬間不算被取代，
+      // 繼續維持原樣。
+      if (insertingProjectId !== project.id && insertCompletedRef.current[i]) {
+        if (loadedProjectId !== null && loadedProjectId !== project.id) {
+          insertCompletedRef.current[i] = false
+        } else {
+          return
+        }
       }
 
       gsap.killTweensOf(group.position)
@@ -298,15 +333,25 @@ export function DVDSelector({ isOpen, insertingProjectId, trayRef, onSelect, onC
         // （three.js Object3D.attach 會保留目前的世界座標，重新算一次
         // 相對 tray 的 local position，畫面上不會跳一下）。之後 tray 自己
         // 關閉時的 position tween 會連帶把這個 group 也帶著移動，碟片才會
-        // 「跟著 player 一起關閉」而不是憑空消失。真正的隱藏交給下面
-        // insertingProjectId 變回 null 時的 else 分支（那邊會在 tray 開始
-        // 關閉的同時把碟片縮小到 0），視覺上就是「碟片跟著托盤一起縮小、
-        // 收回機身裡」。
+        // 「跟著 player 一起關閉」而不是憑空消失。attach 完之後這片碟片
+        // 就會一直留在 tray 上（visible、scale=1）——同步設定
+        // insertCompletedRef，insertingProjectId 一變回 null，上面的判斷
+        // 就會接手讓它維持原樣，不會再進到下面的 else 分支被縮小隱藏，
+        // 這樣使用者事後手動點開 tray 才看得到碟片還在裡面。
         timeline.call(() => {
           const tray = trayRef.current
           if (tray) tray.attach(group)
+          insertCompletedRef.current[i] = true
         })
       } else {
+        // 這裡現在只會是「沒被選中、扇形展開後又收起來的另外兩片」，或
+        // 「player 裡換了一片新的、這片被取代掉」的情況——真正已經放進
+        // player 且還沒被取代的那片碟片會被上面的 insertCompletedRef
+        // 判斷攔截、不會走到這裡。換片瞬間（新片開始插入、舊片還沒被
+        // loadedProjectId 排除）兩片碟片可能短暫同時 attach 在 tray 上
+        // 重疊——目前一次只會有一個 player，使用者流程也還沒有「播放中
+        // 重新選片」這種操作，暫時不特別處理，之後真的要支援換片再回來
+        // 看這裡。
         gsap.to(group.scale, {
           x: 0,
           y: 0,
@@ -319,7 +364,7 @@ export function DVDSelector({ isOpen, insertingProjectId, trayRef, onSelect, onC
         })
       }
     })
-  }, [isOpen, insertingProjectId, camera, trayRef])
+  }, [isOpen, insertingProjectId, loadedProjectId, camera, trayRef])
 
   // 閒置自轉——不受 hover 影響的碟片，每幀累加內層 group 的 rotation。
   // hover 中的碟片被排除在外（見下面 hoveredRef 判斷），讓它維持
