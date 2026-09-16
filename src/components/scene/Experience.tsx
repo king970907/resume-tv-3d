@@ -9,7 +9,7 @@ import type { ScreenContent } from '@/components/tv/RetroTV'
 import { DVDPlayer } from '@/components/dvd/DVDPlayer'
 import { DVDCase } from '@/components/dvd/DVDCase'
 import { DVDSelector } from '@/components/dvd/DVDSelector'
-import { CAMERA_TARGET, ORBIT_MAX_DISTANCE, ORBIT_MIN_DISTANCE } from '@/cores/const/scene'
+import { CAMERA_POSITION, CAMERA_TARGET, ORBIT_MAX_DISTANCE, ORBIT_MIN_DISTANCE } from '@/cores/const/scene'
 import {
   DVD_SELECTOR_CAMERA_DISTANCE,
   DVD_SELECTOR_CAMERA_DOLLY_DURATION,
@@ -18,14 +18,17 @@ import {
 } from '@/cores/const/interaction'
 import {
   CAMERA_FOCUS_DURATION,
+  CAMERA_FOCUS_FOV,
   CAMERA_FOCUS_POSITION,
   CAMERA_FOCUS_TARGET,
+  CAMERA_ZOOM_FOV,
   CAMERA_ZOOM_POSITION,
   CAMERA_ZOOM_TARGET,
   INTRO_LOADING_DURATION,
   SCREEN_ZOOM_IN_DURATION,
   SCREEN_ZOOM_OUT_DURATION,
 } from '@/cores/const/screen'
+import { getResponsiveCameraPosition } from '@/cores/utils/responsiveCamera'
 import type { Project } from '@/cores/types/project'
 import type { ScreenPage } from '@/data/screenPages'
 import type { ScreenPhase } from '@/cores/types/screenPhase'
@@ -86,6 +89,19 @@ export function Experience({
     update: () => void
   } | null
   const camera = useThree((state) => state.camera)
+  const viewportSize = useThree((state) => state.size)
+
+  // 開場預設遠景（CAMERA_POSITION/CAMERA_TARGET，見 scene.ts）是照桌機
+  // 寬螢幕比例調的構圖，手機直式螢幕下 TV 會整台跑出畫面外——見
+  // responsiveCamera.ts 的說明。只在 intro 階段套用：一旦使用者點擊
+  // 開始聚焦，鏡頭就交給下面那個「螢幕流程」的 effect 接管，不會再回頭
+  // 用這組遠景，不用擔心兩邊互相覆蓋。
+  useEffect(() => {
+    if (phase !== 'intro') return
+    const aspect = viewportSize.width / viewportSize.height
+    const responsivePosition = getResponsiveCameraPosition(CAMERA_POSITION, CAMERA_TARGET, aspect)
+    camera.position.copy(responsivePosition)
+  }, [phase, viewportSize, camera])
 
   const [isDvdSelectorOpen, setIsDvdSelectorOpen] = useState(false)
   // 跟 isDvdSelectorOpen 分開——盒蓋掀開/場景變暗要立刻觸發，但碟片扇形
@@ -186,14 +202,19 @@ export function Experience({
   // 渲染對應的 DOM 疊層。
   useEffect(() => {
     if (!controls) return
+    if (!('isPerspectiveCamera' in camera) || !camera.isPerspectiveCamera) return
+
+    const aspect = viewportSize.width / viewportSize.height
 
     if (phase === 'focusing') {
       gsap.killTweensOf(camera.position)
+      gsap.killTweensOf(camera)
       gsap.killTweensOf(controls.target)
+      const focusPosition = getResponsiveCameraPosition(CAMERA_FOCUS_POSITION, CAMERA_FOCUS_TARGET, aspect)
       const timeline = gsap.timeline({ onComplete: () => onPhaseChange('loading') })
       timeline.to(
         camera.position,
-        { x: CAMERA_FOCUS_POSITION[0], y: CAMERA_FOCUS_POSITION[1], z: CAMERA_FOCUS_POSITION[2], duration: CAMERA_FOCUS_DURATION, ease: 'power2.inOut' },
+        { x: focusPosition.x, y: focusPosition.y, z: focusPosition.z, duration: CAMERA_FOCUS_DURATION, ease: 'power2.inOut' },
         0,
       )
       timeline.to(
@@ -208,6 +229,7 @@ export function Experience({
         },
         0,
       )
+      timeline.to(camera, { fov: CAMERA_FOCUS_FOV, duration: CAMERA_FOCUS_DURATION, ease: 'power2.inOut', onUpdate: () => camera.updateProjectionMatrix() }, 0)
       return () => {
         timeline.kill()
       }
@@ -222,11 +244,13 @@ export function Experience({
 
     if (phase === 'zooming-in') {
       gsap.killTweensOf(camera.position)
+      gsap.killTweensOf(camera)
       gsap.killTweensOf(controls.target)
+      const zoomPosition = getResponsiveCameraPosition(CAMERA_ZOOM_POSITION, CAMERA_ZOOM_TARGET, aspect)
       const timeline = gsap.timeline({ onComplete: () => onPhaseChange('fullscreen') })
       timeline.to(
         camera.position,
-        { x: CAMERA_ZOOM_POSITION[0], y: CAMERA_ZOOM_POSITION[1], z: CAMERA_ZOOM_POSITION[2], duration: SCREEN_ZOOM_IN_DURATION, ease: 'power2.in' },
+        { x: zoomPosition.x, y: zoomPosition.y, z: zoomPosition.z, duration: SCREEN_ZOOM_IN_DURATION, ease: 'power2.in' },
         0,
       )
       timeline.to(
@@ -241,6 +265,7 @@ export function Experience({
         },
         0,
       )
+      timeline.to(camera, { fov: CAMERA_ZOOM_FOV, duration: SCREEN_ZOOM_IN_DURATION, ease: 'power2.in', onUpdate: () => camera.updateProjectionMatrix() }, 0)
       return () => {
         timeline.kill()
       }
@@ -248,11 +273,13 @@ export function Experience({
 
     if (phase === 'zooming-out') {
       gsap.killTweensOf(camera.position)
+      gsap.killTweensOf(camera)
       gsap.killTweensOf(controls.target)
+      const focusPosition = getResponsiveCameraPosition(CAMERA_FOCUS_POSITION, CAMERA_FOCUS_TARGET, aspect)
       const timeline = gsap.timeline({ onComplete: () => onPhaseChange('idle') })
       timeline.to(
         camera.position,
-        { x: CAMERA_FOCUS_POSITION[0], y: CAMERA_FOCUS_POSITION[1], z: CAMERA_FOCUS_POSITION[2], duration: SCREEN_ZOOM_OUT_DURATION, ease: 'power2.out' },
+        { x: focusPosition.x, y: focusPosition.y, z: focusPosition.z, duration: SCREEN_ZOOM_OUT_DURATION, ease: 'power2.out' },
         0,
       )
       timeline.to(
@@ -267,6 +294,7 @@ export function Experience({
         },
         0,
       )
+      timeline.to(camera, { fov: CAMERA_FOCUS_FOV, duration: SCREEN_ZOOM_OUT_DURATION, ease: 'power2.out', onUpdate: () => camera.updateProjectionMatrix() }, 0)
       return () => {
         timeline.kill()
       }
@@ -274,10 +302,10 @@ export function Experience({
 
     return undefined
     // phase 是唯一該觸發這個 effect 重跑的東西——onPhaseChange 是穩定的
-    // setState 函式，camera/controls 是 useThree 拿到的穩定實例，都不用
-    // 放進依賴陣列造成不必要的重跑（跟原本 isDvdSelectorOpen 那個 effect
-    // 的寫法不同，那邊要重跑是因為要重新讀 controls/camera 的當下值，這裡
-    // 每次都直接用閉包裡的最新值就夠）。
+    // setState 函式，camera/controls 是 useThree 拿到的穩定實例，
+    // viewportSize 故意不放進依賴——鏡頭姿態只在「進入這個 phase 的當下」
+    // 用當時的寬高比算一次，中途真的轉螢幕方向頂多下次換 phase 才會重算，
+    // 不需要為了這個邊角案例讓整段運鏡在使用者旋轉裝置時被打斷重來。
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 

@@ -33,15 +33,31 @@ export const SCREEN_ZOOM_OUT_DURATION = 0.6 // 秒
 
 // 螢幕聚焦鏡頭姿態——比預設 CAMERA_POSITION/CAMERA_TARGET（見 scene.ts）
 // 貼近螢幕很多，構圖上螢幕要佔畫面大半，跟預設的「看整台電視」角度做出
-// 區別。目標點/位置都是用瀏覽器量過 TV_Screen_Glass 的實際世界座標
-// （世界座標中心 ≈ [-0.065, 0.302, 0.148]，法向量朝向鏡頭那側）算出來的
-// 起始值，再照畫面調整，不是憑感覺硬填。
-export const CAMERA_FOCUS_TARGET: [number, number, number] = [-0.03, 0.3, 0.12]
-export const CAMERA_FOCUS_POSITION: [number, number, number] = [0.18, 0.42, 0.85]
+// 區別，而且要是「正面朝向」的構圖，不是預設那種側 3/4 角度。
+//
+// 第一版直接沿用預設鏡頭的側角度只是拉近，畫面上看起來像「沒有轉正」
+// （旋鈕面板被斜向拉伸、螢幕邊框歪斜）。改用瀏覽器實測過的方法確認：
+// 把鏡頭放在跟 TV_Body 世界座標 X 中心對齊的正前方（TV_Body 邊界框量出
+// 來的中心 x≈0，不是螢幕玻璃自己的 x≈-0.065——螢幕玻璃偏在機身左側，
+// 用它自己的中心當鏡頭對齊基準，看到的其實是機身整體偏一邊的斜角），
+// 鏡頭位置/目標點的 X 對齊之後，畫面才是真的左右對稱、沒有透視歪斜。
+//
+// 光是「鏡頭對正」還不夠：對正後貼近拍還是會因為近距離+標準視角（45°）
+// 產生明顯的廣角透視變形（旋鈕面板這種有實際深度的部件會被拉伸），實測
+// 比對過用「縮小視角(FOV)+同時拉遠對應距離」的長焦式構圖，才是畫面看
+// 起來真正「平整、正面」的做法，跟預設鏡頭共用同一顆 three.js camera，
+// 靠 gsap 同時把 fov 也補間過去，套用完後要記得呼叫
+// camera.updateProjectionMatrix()，這兩組鏡頭姿態各自搭配一個對應的 fov。
+export const CAMERA_FOCUS_FOV = 28
+export const CAMERA_FOCUS_TARGET: [number, number, number] = [0, 0.3, 0.14]
+export const CAMERA_FOCUS_POSITION: [number, number, number] = [0, 0.3, 1.15]
 
 // 全螢幕運鏡的鏡頭姿態——比聚焦姿態更貼近螢幕，構圖上螢幕要幾乎填滿
 // 整個視窗（因為運鏡結束後緊接著會切換成真正的 2D DOM 疊層蓋滿視窗，
 // 這段運鏡只是視覺上的過場，不用真的讓 three.js 貼圖畫面本身達到銳利
-// 全螢幕的程度）。
+// 全螢幕的程度）。這裡改成對準螢幕玻璃自己的中心（不是機身中心）——
+// 全螢幕運鏡的目的是「貼近螢幕本身」，不是「機身正面」，跟聚焦姿態的
+// 對齊基準不同是刻意的。同樣搭配縮小的 fov，理由跟聚焦姿態一樣。
+export const CAMERA_ZOOM_FOV = 22
 export const CAMERA_ZOOM_TARGET: [number, number, number] = [-0.065, 0.302, 0.148]
-export const CAMERA_ZOOM_POSITION: [number, number, number] = [-0.03, 0.32, 0.35]
+export const CAMERA_ZOOM_POSITION: [number, number, number] = [-0.065, 0.302, 0.5]
