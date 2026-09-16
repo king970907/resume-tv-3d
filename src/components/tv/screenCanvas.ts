@@ -59,7 +59,10 @@ const SAFE_MARGIN_RATIO = 0.09
 
 // 內容頁——純色塊背景 + 置中標題/副標，先當佔位畫面用。之後要接真的作品
 // 內容（截圖、排版）時，換掉這個函式內部畫法就好，呼叫端的介面不用改。
-export function drawPage(ctx: CanvasRenderingContext2D, page: ScreenPage, pageNumber: number, pageCount: number): void {
+// 右上角標籤直接讀 page.badge——不管這個 page 是旋鈕轉台轉出來的
+// （badge 是 "CH 1/4" 這種格式）還是 DVD 選片放出來的（badge 固定是
+// "DVD"），這裡都不用關心來源，資料自己知道要顯示什麼標籤。
+export function drawPage(ctx: CanvasRenderingContext2D, page: ScreenPage): void {
   const w = SCREEN_CANVAS_WIDTH
   const h = SCREEN_CANVAS_HEIGHT
   const marginX = w * SAFE_MARGIN_RATIO
@@ -93,13 +96,13 @@ export function drawPage(ctx: CanvasRenderingContext2D, page: ScreenPage, pageNu
   ctx.fillRect(safeLeft, safeTop, safeWidth, 4)
   ctx.fillRect(safeLeft, safeBottom - 4, safeWidth, 4)
 
-  // 右上角「頁碼／總頁數」，模擬電視頻道顯示，貼著安全區的右上角，不是
-  // canvas 本身的右上角。
+  // 右上角標籤，模擬電視頻道顯示，貼著安全區的右上角，不是 canvas 本身
+  // 的右上角。
   ctx.font = `${Math.round(h * 0.05)}px "Courier New", monospace`
   ctx.fillStyle = page.accentColor
   ctx.textAlign = 'right'
   ctx.textBaseline = 'top'
-  ctx.fillText(`CH ${pageNumber}/${pageCount}`, safeRight, safeTop + 12)
+  ctx.fillText(page.badge, safeRight, safeTop + 12)
 
   // 置中標題——用 safeWidth 當作換行寬度上限，標題本身不換行但至少
   // 保證起點/終點都在安全區內；真的太長的標題交給呼叫端控制文字長度，

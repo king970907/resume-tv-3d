@@ -5,7 +5,9 @@ import { IntroOverlay } from '@/components/ui/IntroOverlay'
 import { FullscreenOverlay } from '@/components/ui/FullscreenOverlay'
 import { CAMERA_FOV, CAMERA_POSITION } from '@/cores/const/scene'
 import { CHANNEL_SWITCH_LOADING_DURATION } from '@/cores/const/screen'
-import { SCREEN_PAGES } from '@/data/screenPages'
+import { SCREEN_PAGES, projectToScreenPage } from '@/data/screenPages'
+import { PROJECTS } from '@/data/projects'
+import type { Project } from '@/cores/types/project'
 import type { ScreenPhase } from '@/cores/types/screenPhase'
 import styles from './MainScene.module.css'
 
@@ -20,10 +22,16 @@ import styles from './MainScene.module.css'
 export function MainScene() {
   const [phase, setPhase] = useState<ScreenPhase>('intro')
   const [pageIndex, setPageIndex] = useState(0)
+  // 選片放片流程跑完之後顯示的作品——跟 pageIndex（旋鈕轉台用）是平行
+  // 的兩個「螢幕內容來源」，同一時間只有一個生效：非 null 就顯示這個
+  // 作品，旋鈕轉台會把它清空、換回頻道內容（轉旋鈕=不看 DVD 了，跟真的
+  // 電視/DVD 複合機的直覺一致）。
+  const [insertedProject, setInsertedProject] = useState<Project | null>(null)
 
-  // 旋鈕換頁的短暫 loading——跟大的 phase 狀態機分開存，因為它只會在
-  // phase==='idle' 時發生，不影響鏡頭，只是讓螢幕貼圖短暫轉成雜訊再顯示
-  // 新頁，用獨立的 boolean 比塞進 ScreenPhase 的列舉簡單很多。
+  // 旋鈕換頁/選片放片共用的短暫 loading——跟大的 phase 狀態機分開存，
+  // 因為它只會在 phase==='idle' 時發生，不影響鏡頭，只是讓螢幕貼圖短暫
+  // 轉成雜訊再顯示新內容，用獨立的 boolean 比塞進 ScreenPhase 的列舉
+  // 簡單很多。
   const [isChannelLoading, setIsChannelLoading] = useState(false)
   const channelLoadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -33,8 +41,7 @@ export function MainScene() {
     }
   }, [])
 
-  const handleChannelChange = (index: number) => {
-    setPageIndex(index)
+  const flashChannelLoading = () => {
     setIsChannelLoading(true)
     if (channelLoadingTimeoutRef.current) clearTimeout(channelLoadingTimeoutRef.current)
     channelLoadingTimeoutRef.current = setTimeout(() => {
@@ -42,7 +49,23 @@ export function MainScene() {
     }, CHANNEL_SWITCH_LOADING_DURATION * 1000)
   }
 
-  const currentPage = SCREEN_PAGES[pageIndex]
+  const handleChannelChange = (index: number) => {
+    setPageIndex(index)
+    setInsertedProject(null)
+    flashChannelLoading()
+  }
+
+  // Experience.tsx 的放片流程（開 player -> 碟片飛進去 -> 關 player）跑完
+  // 才會呼叫這裡——螢幕內容切換的時機對在「tray 關起來」，不是碟片一
+  // 到位就切，理由見 Experience.tsx 裡 handleSelectProject 的註解。
+  const handleProjectInserted = (project: Project) => {
+    setInsertedProject(project)
+    flashChannelLoading()
+  }
+
+  const currentPage = insertedProject
+    ? projectToScreenPage(insertedProject, PROJECTS.findIndex((p) => p.id === insertedProject.id))
+    : SCREEN_PAGES[pageIndex]
 
   return (
     <div className={styles.scene}>
@@ -55,11 +78,11 @@ export function MainScene() {
           <Experience
             phase={phase}
             onPhaseChange={setPhase}
-            pageIndex={pageIndex}
             pageCount={SCREEN_PAGES.length}
             page={currentPage}
             isChannelLoading={isChannelLoading}
             onChannelChange={handleChannelChange}
+            onProjectInserted={handleProjectInserted}
           />
         </Suspense>
       </Canvas>

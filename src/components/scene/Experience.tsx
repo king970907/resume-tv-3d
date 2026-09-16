@@ -11,8 +11,11 @@ import { DVDCase } from '@/components/dvd/DVDCase'
 import { DVDSelector } from '@/components/dvd/DVDSelector'
 import { CAMERA_POSITION, CAMERA_TARGET, ORBIT_MAX_DISTANCE, ORBIT_MIN_DISTANCE } from '@/cores/const/scene'
 import {
+  DVD_INSERT_FLY_DURATION,
+  DVD_INSERT_SETTLE_PAUSE,
   DVD_SELECTOR_CAMERA_DISTANCE,
   DVD_SELECTOR_CAMERA_DOLLY_DURATION,
+  DVD_TRAY_ANIM_DURATION,
   SCENE_DIM_DURATION,
   SCENE_DIM_FACTOR,
 } from '@/cores/const/interaction'
@@ -56,21 +59,25 @@ const SELECTOR_LIGHT_INTENSITY = 1.5
 interface ExperienceProps {
   phase: ScreenPhase
   onPhaseChange: (phase: ScreenPhase) => void
-  pageIndex: number
   pageCount: number
   page: ScreenPage
   isChannelLoading: boolean
   onChannelChange: (index: number) => void
+  // 選片放片流程整段（開 player -> 碟片飛進去 -> 關 player）跑完之後才
+  // 呼叫——把「螢幕該顯示這個作品了」的消息往上回報給 MainScene，跟
+  // onChannelChange 是平行的兩個「螢幕內容來源」，只是觸發時機不同
+  // （一個是旋鈕，一個是整段放片動畫跑完）。
+  onProjectInserted: (project: Project) => void
 }
 
 export function Experience({
   phase,
   onPhaseChange,
-  pageIndex,
   pageCount,
   page,
   isChannelLoading,
   onChannelChange,
+  onProjectInserted,
 }: ExperienceProps) {
   const ambientRef = useRef<AmbientLight>(null)
   const keyLightRef = useRef<DirectionalLight>(null)
@@ -109,6 +116,22 @@ export function Experience({
   // 展開要等鏡頭確定拉到安全距離之後才能算位置（DVDSelector 是用「開啟
   // 當下」的鏡頭位置算扇形排列，鏡頭如果太近，碟片會直接卡進 TV 機身）。
   const [discsReady, setDiscsReady] = useState(false)
+
+  // 選片後把碟片放進 DVD player 的流程——兩個獨立的狀態：isDvdPlayerOpen
+  // 控制 tray 開闔（跟 DVDCase 的 isOpen 同一套受控元件寫法，這裡多了
+  // 「不是使用者手動點才開」的用法：選片流程會直接呼叫 setIsDvdPlayerOpen
+  // 把 tray 打開/關上）；insertingProjectId 告訴 DVDSelector「這一片碟片
+  // 現在要飛去 player，不是跟其他片一樣原地縮小」，流程跑完就清空。
+  const [isDvdPlayerOpen, setIsDvdPlayerOpen] = useState(false)
+  const [insertingProjectId, setInsertingProjectId] = useState<string | null>(null)
+  const insertTimersRef = useRef<gsap.core.Tween[]>([])
+
+  useEffect(() => {
+    const timers = insertTimersRef.current
+    return () => {
+      timers.forEach((timer) => timer.kill())
+    }
+  }, [])
 
   useEffect(() => {
     if (!isDvdSelectorOpen) {
@@ -192,11 +215,12 @@ export function Experience({
 
     // `controls` 是 useThree 拿到的、真實存在的 three.js OrbitControls 實例，
     // 不是 React state——直接改 .enabled 就是它預期的用法（跟 RetroTV 旋鈕
-    // 那次踩過的 TS/lint 坑一樣）。選片開著、或螢幕運鏡流程不在 idle 階段
-    // 時都不能讓使用者自由轉鏡頭，兩個條件都要滿足才解鎖。
+    // 那次踩過的 TS/lint 坑一樣）。選片開著、放片動畫還沒跑完、或螢幕運鏡
+    // 流程不在 idle 階段時都不能讓使用者自由轉鏡頭，全部條件都要滿足才
+    // 解鎖。
     // oxlint-disable-next-line react/immutability
-    if (controls) controls.enabled = !isDvdSelectorOpen && phase === 'idle'
-  }, [isDvdSelectorOpen, controls, camera, phase])
+    if (controls) controls.enabled = !isDvdSelectorOpen && !insertingProjectId && phase === 'idle'
+  }, [isDvdSelectorOpen, insertingProjectId, controls, camera, phase])
 
   // 螢幕流程的鏡頭運鏡/計時——每個 phase 進來的當下決定要不要動鏡頭、要
   // 等多久才進下一步，統一集中在這裡，MainScene 只負責存 phase 本身跟
@@ -320,12 +344,36 @@ export function Experience({
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
+  // 點碟片之後的整段「放片」流程：
+  //   1. 立刻關掉選片畫面（其他碟片退場、盒蓋跟著關）、打開 DVD player
+  //      的 tray，選中的碟片同時飛向 tray（DVDSelector 自己接管，見它的
+  //      insertingProjectId 那段邏輯）——三件事同時發生，不用互等。
+  //   2. 等碟片飛到、tray 也開好之後，多停頓一下（DVD_INSERT_SETTLE_
+  //      PAUSE，讓使用者看得出「碟片到位了」），才關 tray。
+  //   3. tray 關完，才通知 MainScene 螢幕該顯示這個作品——時機對在「tray
+  //      關起來」而不是「碟片一到位」，感覺才像「片子放好、機器關起來
+  //      準備開始播放」，不是碟片憑空消失螢幕就跳畫面。
   const handleSelectProject = (project: Project) => {
-    // 佔位——真正的行為是「切換 TV 螢幕顯示這個項目」，但這次先不把
-    // DVD 選片串進螢幕切換（見對話紀錄的決定），先用 alert 頂著，之後
-    // 直接替換這行就好，不用動選片畫面關閉的邏輯。
-    alert(`切換螢幕：${project.title}`)
+    // 正常操作下選片畫面收起來的當下碟片就不能再點了，不會重複觸發；
+    // 這個保護主要是防呆（例如同一顆碟片的點擊事件在畫面更新前重複觸發
+    // 兩次），避免兩段放片流程的計時器疊在一起互搶 isDvdPlayerOpen/
+    // insertingProjectId 的狀態。
+    if (insertingProjectId) return
     setIsDvdSelectorOpen(false)
+    setInsertingProjectId(project.id)
+    setIsDvdPlayerOpen(true)
+
+    const settleDelay = Math.max(DVD_INSERT_FLY_DURATION, DVD_TRAY_ANIM_DURATION) + DVD_INSERT_SETTLE_PAUSE
+    const closeTrayTimer = gsap.delayedCall(settleDelay, () => {
+      setIsDvdPlayerOpen(false)
+      setInsertingProjectId(null)
+
+      const revealTimer = gsap.delayedCall(DVD_TRAY_ANIM_DURATION, () => {
+        onProjectInserted(project)
+      })
+      insertTimersRef.current.push(revealTimer)
+    })
+    insertTimersRef.current.push(closeTrayTimer)
   }
 
   // 螢幕現在該顯示什麼——intro/focusing 兩個階段螢幕是關的（黑），loading
@@ -334,13 +382,14 @@ export function Experience({
   // 同一個 'loading' mode），其餘階段（idle/zooming-in/fullscreen/
   // zooming-out）顯示目前頁面內容。運鏡途中(zooming-in/out)、全螢幕疊層
   // 蓋著的時候螢幕內容其實不會被看到，但還是要維持顯示正確內容，運鏡回來
-  // 時才不會閃一下錯誤畫面。
+  // 時才不會閃一下錯誤畫面。page 本身（含右上角 badge）已經由 MainScene
+  // 決定好是頻道內容還是選好的 DVD 內容，這裡不用區分來源。
   const screenContent: ScreenContent =
     phase === 'loading' || phase === 'zoom-loading' || isChannelLoading
       ? { mode: 'loading' }
       : phase === 'intro' || phase === 'focusing'
         ? { mode: 'off' }
-        : { mode: 'page', page, pageNumber: pageIndex + 1, pageCount }
+        : { mode: 'page', page }
 
   const isScreenInteractive = phase === 'idle' && !isDvdSelectorOpen
 
@@ -390,7 +439,16 @@ export function Experience({
           值，等於白算。 */}
       <pointLight ref={selectorLightRef} intensity={0} color="#e8e8d0" />
 
-      <DVDPlayer />
+      <DVDPlayer
+        isOpen={isDvdPlayerOpen}
+        onToggle={() => {
+          // 放片流程進行中、或螢幕運鏡不在 idle 階段時，都不給使用者手動
+          // 開闔 tray——理由跟下面 DVDCase 的 onToggle 一樣，避免使用者
+          // 亂點打斷正在跑的動畫序列，或跟運鏡動畫互搶 camera 狀態。
+          if (phase !== 'idle' || insertingProjectId) return
+          setIsDvdPlayerOpen((v) => !v)
+        }}
+      />
       <RetroTV
         pageCount={pageCount}
         screenContent={screenContent}
@@ -403,14 +461,17 @@ export function Experience({
       <DVDCase
         isOpen={isDvdSelectorOpen}
         onToggle={() => {
-          // 螢幕流程不在 idle 階段時不給開盒——避免兩套各自控制鏡頭的
-          // 動畫互搶 camera.position/controls.target。
-          if (phase !== 'idle') return
+          // 螢幕流程不在 idle 階段、或放片流程正在跑的時候都不給開盒——
+          // 前者避免兩套各自控制鏡頭的動畫互搶 camera.position/
+          // controls.target，後者避免使用者在碟片飛向 player 的途中又
+          // 手動開盒，讓選片畫面的開/收邏輯跟放片流程的收尾互相打架。
+          if (phase !== 'idle' || insertingProjectId) return
           setIsDvdSelectorOpen((v) => !v)
         }}
       />
       <DVDSelector
         isOpen={discsReady}
+        insertingProjectId={insertingProjectId}
         onSelect={handleSelectProject}
         onClose={() => setIsDvdSelectorOpen(false)}
       />

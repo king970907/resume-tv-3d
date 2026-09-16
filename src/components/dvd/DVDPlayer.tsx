@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
@@ -24,16 +24,35 @@ type GLTFNodes = Record<string, Object3D>
 // 朝鏡頭方向滑出，正確。
 const TRAY_SLIDE_AXIS = 'z' as const
 
-export function DVDPlayer() {
+interface DVDPlayerProps {
+  // 受控元件——跟 DVDCase 同一套設計：開闔狀態交給 Experience.tsx 統一
+  // 管理，因為選片放片流程需要從外面（點選好的碟片之後）主動把 tray
+  // 打開又關上，不能只靠使用者自己點 tray 才會動。
+  isOpen: boolean
+  onToggle: () => void
+}
+
+export function DVDPlayer({ isOpen, onToggle }: DVDPlayerProps) {
   const { nodes } = useGLTF('/models/dvd-player.glb') as unknown as { nodes: GLTFNodes }
   const trayRef = useRef<Object3D>(null)
   const closedZRef = useRef(0)
-  const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
     const tray = trayRef.current
     if (tray) closedZRef.current = tray.position.z
   }, [])
+
+  useEffect(() => {
+    const tray = trayRef.current
+    if (!tray) return
+    gsap.killTweensOf(tray.position)
+    const closedZ = closedZRef.current
+    gsap.to(tray.position, {
+      [TRAY_SLIDE_AXIS]: isOpen ? closedZ - DVD_TRAY_OPEN_DISTANCE : closedZ,
+      duration: DVD_TRAY_ANIM_DURATION,
+      ease: 'power2.out',
+    })
+  }, [isOpen])
 
   useEffect(() => {
     const tray = trayRef.current
@@ -43,19 +62,10 @@ export function DVDPlayer() {
   }, [])
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
-    // 不喊停的話，同一條射線只要還打中後面的其他東西（旋鈕、TV 機身），
-    // 那些的 handler 也會一起被觸發。
+    // 不喊停的話，這條射線還是會繼續往後面傳，打到後面的 TV 機身也把它的
+    // handler 一起觸發——跟 RetroTV 旋鈕那邊的修正是同一個理由。
     event.stopPropagation()
-    const tray = trayRef.current
-    if (!tray) return
-    const next = !isOpen
-    setIsOpen(next)
-    const closedZ = closedZRef.current
-    gsap.to(tray.position, {
-      [TRAY_SLIDE_AXIS]: next ? closedZ - DVD_TRAY_OPEN_DISTANCE : closedZ,
-      duration: DVD_TRAY_ANIM_DURATION,
-      ease: 'power2.out',
-    })
+    onToggle()
   }
 
   return (

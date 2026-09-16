@@ -40,3 +40,16 @@ export const DVD_SELECTOR_CAMERA_DOLLY_DURATION = 0.5 // 秒
 export const DVD_SELECTOR_SPIN_SPEED_X = 0.4 // 弧度/秒
 export const DVD_SELECTOR_SPIN_SPEED_Y = 0.6 // 弧度/秒
 export const DVD_SELECTOR_HOVER_SNAP_DURATION = 0.25 // 秒，hover 時轉正對鏡頭的時間
+
+// 選片後把選中的碟片「放進」DVD player 的整段流程：點碟片 -> player 開
+// （跟其他碟片收起來同時發生）-> 選中的碟片飛向 player -> 停頓一下
+// （讓畫面上看得出「碟片已經在 player 裡了」）-> player 關 -> 螢幕顯示
+// 內容。跟 DVD_SELECTOR_FLY_DURATION（碟片飛出來給你選）是同一種手法，
+// 只是這次飛行終點是 DVD player 的 tray，不是鏡頭前方。
+export const DVD_INSERT_FLY_DURATION = 0.6 // 秒，選中的碟片飛向 player 的時間
+// 碟片在選片畫面被放大到 DVD_SELECTOR_SCALE(2倍)方便看清楚，飛進 player
+// 時縮小回接近原始尺寸——真的放進去的碟片不該還維持選片時的誇張尺寸。
+export const DVD_INSERT_SCALE_END = 1
+// 碟片/tray 都到定位之後，多停頓一下再關 tray，讓使用者看得出「碟片已經
+// 放進去了」，不是碟片一到位 tray 馬上關、動作黏在一起分不清楚。
+export const DVD_INSERT_SETTLE_PAUSE = 0.2 // 秒

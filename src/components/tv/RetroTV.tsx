@@ -19,7 +19,7 @@ import type { ScreenPage } from '@/data/screenPages'
 export type ScreenContent =
   | { mode: 'off' }
   | { mode: 'loading' }
-  | { mode: 'page'; page: ScreenPage; pageNumber: number; pageCount: number }
+  | { mode: 'page'; page: ScreenPage }
 
 interface RetroTVProps {
   // 目前的頁數——預設 4（見 KNOB_DEFAULT_PAGE_COUNT，先讓旋鈕機構動起來）。
@@ -184,7 +184,7 @@ export function RetroTV({
       drawOff(ctx)
       texture.needsUpdate = true
     } else if (screenContent.mode === 'page') {
-      drawPage(ctx, screenContent.page, screenContent.pageNumber, screenContent.pageCount)
+      drawPage(ctx, screenContent.page)
       texture.needsUpdate = true
     } else {
       drawNoise(ctx)
