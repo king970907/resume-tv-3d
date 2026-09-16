@@ -42,11 +42,27 @@ export const DVD_SELECTOR_SPIN_SPEED_Y = 0.6 // 弧度/秒
 export const DVD_SELECTOR_HOVER_SNAP_DURATION = 0.25 // 秒，hover 時轉正對鏡頭的時間
 
 // 選片後把選中的碟片「放進」DVD player 的整段流程：點碟片 -> player 開
-// （跟其他碟片收起來同時發生）-> 選中的碟片飛向 player -> 停頓一下
-// （讓畫面上看得出「碟片已經在 player 裡了」）-> player 關 -> 螢幕顯示
-// 內容。跟 DVD_SELECTOR_FLY_DURATION（碟片飛出來給你選）是同一種手法，
-// 只是這次飛行終點是 DVD player 的 tray，不是鏡頭前方。
-export const DVD_INSERT_FLY_DURATION = 0.6 // 秒，選中的碟片飛向 player 的時間
+// （跟其他碟片收起來同時發生）-> 選中的碟片縮小/邊飛邊翻正/放進槽裡
+// （分三段，見下面三個 DURATION 常數）-> 停頓一下（讓畫面上看得出「碟片
+// 已經在 player 裡了」）-> player 關 -> 螢幕顯示內容。
+//
+// 第一版是單純的 position/scale 直線 tween，角度完全不變——碟片全程維持
+// 選片時「面向鏡頭」的朝向飛過去，看起來像整片貼圖平移過去，不像真的
+// 被拿起來放進機器裡。改成三段式：
+//   1. 原地縮小（DVD_INSERT_SHRINK_DURATION）：先從選片放大尺寸縮回接近
+//      原始大小，感覺像「先把碟片捏小準備收好」，這時候還沒開始移動。
+//   2. 邊飛邊翻正（DVD_INSERT_FLY_DURATION）：位置飛向 tray 正上方（留
+//      DVD_INSERT_HOVER_HEIGHT 的高度差，不是一次到底），同時角度從
+//      「面向鏡頭」翻成「躺平、正面朝上」——跟真的拿一片光碟放進托盤是
+//      同一個動作次序。
+//   3. 放下（DVD_INSERT_DROP_DURATION）：從 tray 正上方做最後一小段下降
+//      到精確的插槽位置，模擬「放下」而不是整段飛行一次到位。
+export const DVD_INSERT_SHRINK_DURATION = 0.25 // 秒
+export const DVD_INSERT_FLY_DURATION = 0.6 // 秒，邊飛邊翻正的時間
+export const DVD_INSERT_DROP_DURATION = 0.2 // 秒
+// 邊飛邊翻正的終點比最終插槽位置高多少（公尺）——留給第3段「放下」用，
+// 不然整段飛行只剩翻正、沒有「放下」的動作可以做。
+export const DVD_INSERT_HOVER_HEIGHT = 0.04
 // 碟片在選片畫面被放大到 DVD_SELECTOR_SCALE(2倍)方便看清楚，飛進 player
 // 時縮小回接近原始尺寸——真的放進去的碟片不該還維持選片時的誇張尺寸。
 export const DVD_INSERT_SCALE_END = 1

@@ -2,15 +2,18 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import type { Group, Mesh } from 'three'
 import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import { DVD_TRAY_INSERT_POSITION } from '@/cores/const/scene'
 import { DVD } from './DVD'
 import {
+  DVD_INSERT_DROP_DURATION,
   DVD_INSERT_FLY_DURATION,
+  DVD_INSERT_HOVER_HEIGHT,
   DVD_INSERT_SCALE_END,
+  DVD_INSERT_SHRINK_DURATION,
   DVD_SELECTOR_ARC_SPACING,
   DVD_SELECTOR_DISTANCE,
   DVD_SELECTOR_FLY_DURATION,
@@ -19,6 +22,16 @@ import {
   DVD_SELECTOR_SPIN_SPEED_X,
   DVD_SELECTOR_SPIN_SPEED_Y,
 } from '@/cores/const/interaction'
+
+// 角度累加久了會是很大的數字（閒置自轉從不 wrap 回 [0,2π)），直接 tween
+// 到 0 會被 gsap 照數字大小硬轉那麼多圈——跟 handleHoverChange 轉正時
+// 踩過的坑一樣，先 wrap 到數學上等價、落在 [-π, π] 內最接近 0 的角度，
+// tween 才會是一段不超過半圈的最短路徑。兩個地方都要用，抽成共用函式。
+function wrapToNearestZero(angle: number): number {
+  const twoPi = Math.PI * 2
+  const wrapped = ((angle % twoPi) + twoPi) % twoPi
+  return wrapped > Math.PI ? wrapped - twoPi : wrapped
+}
 
 interface DVDSelectorProps {
   isOpen: boolean
@@ -124,29 +137,83 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
           },
         )
       } else if (insertingProjectId === project.id) {
-        // 選片後被挑中的那一片——跟其他片一起收起來時，不是原地縮小消失，
-        // 是飛向 DVD player 的 tray（DVD_TRAY_INSERT_POSITION，世界座標，
-        // 跟盒子/鏡頭都無關，見 scene.ts 的說明），同時從選片時放大的
-        // DVD_SELECTOR_SCALE 縮回接近原始尺寸——真的放進 player 的碟片
-        // 不該還維持選片時誇張的放大尺寸。這裡不用管 tray 開/關的時機，
-        // 那是 Experience.tsx 另外排的時間軸，這裡只負責飛過去、縮小、
-        // 到位後隱藏。
-        gsap.to(group.position, {
-          x: DVD_TRAY_INSERT_POSITION[0],
-          y: DVD_TRAY_INSERT_POSITION[1],
-          z: DVD_TRAY_INSERT_POSITION[2],
-          duration: DVD_INSERT_FLY_DURATION,
-          ease: 'power2.in',
-        })
-        gsap.to(group.scale, {
-          x: DVD_INSERT_SCALE_END,
-          y: DVD_INSERT_SCALE_END,
-          z: DVD_INSERT_SCALE_END,
-          duration: DVD_INSERT_FLY_DURATION,
-          ease: 'power2.in',
+        // 選片後被挑中的那一片——跟其他片一起收起來時，不是原地縮小消失
+        // 也不是直線平移過去，是分三段的「拿起來、翻正放進去」動作（見
+        // interaction.ts 裡三個 DVD_INSERT_*_DURATION 常數的說明）。
+        const spinGroup = spinGroupRefs.current[i]
+        const timeline = gsap.timeline({
           onComplete: () => {
             group.visible = false
           },
+        })
+
+        // 第1段：原地縮小，從選片放大尺寸縮回接近原始大小，這時候還是
+        // 面向鏡頭、還沒開始移動——像「先把碟片捏小準備收好」。
+        timeline.to(group.scale, {
+          x: DVD_INSERT_SCALE_END,
+          y: DVD_INSERT_SCALE_END,
+          z: DVD_INSERT_SCALE_END,
+          duration: DVD_INSERT_SHRINK_DURATION,
+          ease: 'power2.out',
+        })
+
+        // 第2段：邊飛邊翻正。位置飛向 tray 正上方（留 DVD_INSERT_
+        // HOVER_HEIGHT 的高度差，不是一次到底，留給第3段做「放下」），
+        // 角度從「面向鏡頭」翻成「躺平、正面朝上」。
+        //
+        // quaternion 不能直接丟給 gsap tween 數值——那是對 x/y/z/w 四個
+        // 分量各自線性內插，內插完不保證是單位四元數，插值路徑也不是
+        // 真正的球面最短路徑，角度變化會不平順。改成 tween 一個 0~1 的
+        // 代理值，每一幀用 slerpQuaternions 手動算出正確的球面內插結果。
+        // 目標角度用單位四元數（identity）——DVD.tsx 的元件慣例是「本地
+        // +Y 朝前」，group 本身沒有額外旋轉時 +Y 剛好對齊世界 +Y（往上），
+        // 也就是「躺平、正面朝上」，等於放進打開的 tray 裡的樣子。
+        const fromQuat = group.quaternion.clone()
+        const toQuat = new Quaternion()
+        const rotateProxy = { t: 0 }
+        const hoverPosition = [
+          DVD_TRAY_INSERT_POSITION[0],
+          DVD_TRAY_INSERT_POSITION[1] + DVD_INSERT_HOVER_HEIGHT,
+          DVD_TRAY_INSERT_POSITION[2],
+        ]
+        timeline.to(
+          group.position,
+          { x: hoverPosition[0], y: hoverPosition[1], z: hoverPosition[2], duration: DVD_INSERT_FLY_DURATION, ease: 'power2.inOut' },
+        )
+        timeline.to(
+          rotateProxy,
+          {
+            t: 1,
+            duration: DVD_INSERT_FLY_DURATION,
+            ease: 'power2.inOut',
+            onUpdate: () => group.quaternion.slerpQuaternions(fromQuat, toQuat, rotateProxy.t),
+          },
+          '<', // 跟上一段（飛向正上方）同時開始，翻正跟飛行是同一個動作
+        )
+
+        // spinGroup 閒置自轉留下的角度也要一起歸零，不然「躺平」只翻對了
+        // 外層 discGroup，內層還帶著閒置自轉當下累積的角度，兩層疊起來
+        // 還是歪的。跟 handleHoverChange 轉正時同樣要先 wrap 到最近的 0
+        // 再 tween，避免累積角度太大時硬轉好幾圈。
+        if (spinGroup) {
+          spinGroup.rotation.x = wrapToNearestZero(spinGroup.rotation.x)
+          spinGroup.rotation.y = wrapToNearestZero(spinGroup.rotation.y)
+          gsap.killTweensOf(spinGroup.rotation)
+          timeline.to(
+            spinGroup.rotation,
+            { x: 0, y: 0, z: 0, duration: DVD_INSERT_FLY_DURATION, ease: 'power2.inOut' },
+            '<',
+          )
+        }
+
+        // 第3段：放下。從 tray 正上方做最後一小段下降到精確的插槽位置，
+        // 模擬「放下」的動作，不是整段飛行一次到位。
+        timeline.to(group.position, {
+          x: DVD_TRAY_INSERT_POSITION[0],
+          y: DVD_TRAY_INSERT_POSITION[1],
+          z: DVD_TRAY_INSERT_POSITION[2],
+          duration: DVD_INSERT_DROP_DURATION,
+          ease: 'power2.in',
         })
       } else {
         gsap.to(group.scale, {
@@ -191,12 +258,9 @@ export function DVDSelector({ isOpen, insertingProjectId, onSelect, onClose }: D
       // 各種奇怪的側面角度，看起來像壞掉（實測過，回報「hover 變成很怪
       // 的形狀」正是這個原因，不是單純的朝向搞錯）。先把數值 wrap 到
       // 數學上等價、但落在 [-π, π] 內最接近 0 的角度，tween 才會是一段
-      // 不超過半圈的最短路徑，瞬間定住的視覺效果不會經過奇怪的中間角度。
-      const wrapToNearestZero = (angle: number) => {
-        const twoPi = Math.PI * 2
-        const wrapped = ((angle % twoPi) + twoPi) % twoPi
-        return wrapped > Math.PI ? wrapped - twoPi : wrapped
-      }
+      // 不超過半圈的最短路徑，瞬間定住的視覺效果不會經過奇怪的中間角度
+      // （wrapToNearestZero 定義在檔案最上面，選片放進 player 那段動畫
+      // 也要用同一個函式）。
       spinGroup.rotation.x = wrapToNearestZero(spinGroup.rotation.x)
       spinGroup.rotation.y = wrapToNearestZero(spinGroup.rotation.y)
 

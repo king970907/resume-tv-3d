@@ -11,8 +11,10 @@ import { DVDCase } from '@/components/dvd/DVDCase'
 import { DVDSelector } from '@/components/dvd/DVDSelector'
 import { CAMERA_POSITION, CAMERA_TARGET, ORBIT_MAX_DISTANCE, ORBIT_MIN_DISTANCE } from '@/cores/const/scene'
 import {
+  DVD_INSERT_DROP_DURATION,
   DVD_INSERT_FLY_DURATION,
   DVD_INSERT_SETTLE_PAUSE,
+  DVD_INSERT_SHRINK_DURATION,
   DVD_SELECTOR_CAMERA_DISTANCE,
   DVD_SELECTOR_CAMERA_DOLLY_DURATION,
   DVD_TRAY_ANIM_DURATION,
@@ -363,7 +365,10 @@ export function Experience({
     setInsertingProjectId(project.id)
     setIsDvdPlayerOpen(true)
 
-    const settleDelay = Math.max(DVD_INSERT_FLY_DURATION, DVD_TRAY_ANIM_DURATION) + DVD_INSERT_SETTLE_PAUSE
+    // 碟片那邊現在是三段式動畫（縮小 -> 邊飛邊翻正 -> 放下，見 DVDSelector
+    // 的說明），要等三段全部播完才算「碟片到位」，不能只算飛行那一段。
+    const discInsertDuration = DVD_INSERT_SHRINK_DURATION + DVD_INSERT_FLY_DURATION + DVD_INSERT_DROP_DURATION
+    const settleDelay = Math.max(discInsertDuration, DVD_TRAY_ANIM_DURATION) + DVD_INSERT_SETTLE_PAUSE
     const closeTrayTimer = gsap.delayedCall(settleDelay, () => {
       setIsDvdPlayerOpen(false)
       setInsertingProjectId(null)
