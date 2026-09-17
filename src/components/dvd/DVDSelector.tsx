@@ -1,414 +1,187 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import gsap from 'gsap'
 import { Quaternion, Vector3 } from 'three'
-import type { Group, Mesh, Object3D } from 'three'
+import type { Group, Object3D } from 'three'
 import { PROJECTS } from '@/data/projects'
-import type { Project } from '@/cores/types/project'
-import { DVD_TRAY_INSERT_POSITION } from '@/cores/const/scene'
-import { DVD } from './DVD'
 import {
+  CAMERA_CASE_POSITION,
+  CAMERA_CASE_TARGET,
+  DVD_CASE_DISC_REST_POSITION,
+  DVD_CASE_DISC_REST_ROTATION,
+  DVD_INSERT_CLEAR_POSITION,
+  DVD_TRAY_INSERT_POSITION,
+} from '@/cores/const/scene'
+import {
+  DVD_INSERT_DESCEND_DURATION,
   DVD_INSERT_DROP_DURATION,
   DVD_INSERT_FLY_DURATION,
   DVD_INSERT_HOVER_HEIGHT,
-  DVD_INSERT_SCALE_END,
-  DVD_INSERT_SHRINK_DURATION,
-  DVD_SELECTOR_ARC_SPACING,
-  DVD_SELECTOR_DISTANCE,
-  DVD_SELECTOR_FLY_DURATION,
-  DVD_SELECTOR_HOVER_SNAP_DURATION,
-  DVD_SELECTOR_RETRACT_DURATION,
-  DVD_SELECTOR_SCALE,
-  DVD_SELECTOR_SPIN_SPEED_X,
-  DVD_SELECTOR_SPIN_SPEED_Y,
 } from '@/cores/const/interaction'
+import { DVD } from './DVD'
 
-// 角度累加久了會是很大的數字（閒置自轉從不 wrap 回 [0,2π)），直接 tween
-// 到 0 會被 gsap 照數字大小硬轉那麼多圈——跟 handleHoverChange 轉正時
-// 踩過的坑一樣，先 wrap 到數學上等價、落在 [-π, π] 內最接近 0 的角度，
-// tween 才會是一段不超過半圈的最短路徑。兩個地方都要用，抽成共用函式。
-function wrapToNearestZero(angle: number): number {
-  const twoPi = Math.PI * 2
-  const wrapped = ((angle % twoPi) + twoPi) % twoPi
-  return wrapped > Math.PI ? wrapped - twoPi : wrapped
-}
+// 場景現在只留一片光碟（使用者確認的方向：3 片同時存在是換片 bug 的根源，
+// 見這次重構前的討論），固定用 PROJECTS[0]——跟 DVDCase.tsx 原本那片
+// 純裝飾用碟的身份一樣，只是現在真的可以點、可以飛進 player。
+const DISC_PROJECT = PROJECTS[0]
+
+// 背板蓋在光碟後面，接住「點擊光碟以外的地方」的事件，用來關閉盒子特寫
+// 視角——位置沿著鏡頭到目標點的方向，放在光碟後方一段距離，這樣光碟本身
+// 擋在前面優先被打中，點不到光碟的地方射線才會落到這片背板上。跟舊版
+// （3 片碟時代）不同的是，這次鏡頭姿態是固定常數（CAMERA_CASE_POSITION/
+// TARGET，不是使用者當下鏡頭），背板的世界座標因此也是固定的，只要算
+// 一次，不需要每次開盒都重算。
+const BACKDROP_DISTANCE_PAST_DISC = 0.6
+const BACKDROP_SIZE = 3
 
 interface DVDSelectorProps {
+  // 盒子特寫視角是不是開著——由 Experience.tsx 統一管理（跟 DVDCase 共用
+  // 同一個布林值）。
   isOpen: boolean
-  // 選片後、正在把選中的碟片放進 DVD player 的期間，這裡是那個 project
-  // 的 id，其餘時間是 null。跟 isOpen 是分開的兩個維度：isOpen 決定「一般
-  // 的開/收扇形排列」，這個 prop 只在 isOpen 已經變 false 之後，決定
-  // 「收起來的那一片要不要走特殊的飛向 player 動畫，而不是跟其他片一樣
-  // 直接原地縮小消失」。
-  insertingProjectId: string | null
-  // player 裡目前已經放好的是哪個作品的碟片，沒放片是 null——放片流程
-  // 跑完之後（insertingProjectId 變回 null）這片碟片不能再走「其他片」
-  // 那條縮小隱藏的分支，要維持原樣留在 tray 上（見下面 effect 內的判斷），
-  // 不然使用者事後手動點開 tray，裡面會是空的（實測到的真正 bug）。
-  loadedProjectId: string | null
+  // 這片光碟是不是正在飛進 player 的動畫過程中。
+  isInserting: boolean
+  // player 裡已經放好光碟了——場景只有一片光碟，放進去之後就不會再變回
+  // 可選狀態（case 也不會再讓你開，見 Experience.tsx），這裡當雙重保險，
+  // 避免任何邊角情況下還讓已經放進去的光碟又被點擊觸發一次。
+  hasDisc: boolean
   // DVDPlayer 掛載後回報的 tray Object3D（見 DVDPlayer.tsx 的 onTrayReady）
-  // ——碟片放到 tray 上之後要 attach 到這個物件底下，讓它之後能跟著 tray
-  // 關閉的動畫一起移動，不用自己重新算一次「tray 現在滑到哪裡了」。
+  // ——光碟放到 tray 上之後要 attach 到這個物件底下，讓它之後能跟著 tray
+  // 關閉的動畫一起移動，不用自己另外算一次位置。
   trayRef: RefObject<Object3D | null>
-  onSelect: (project: Project) => void
-  // 點擊碟片以外的地方（黑色背景）要能取消選片——這個 callback 就是拿來
-  // 關閉整個選片畫面用的，不選任何一片。
+  onSelect: () => void
+  // 點擊光碟以外的地方（背板）要能取消，關閉盒子特寫視角，不選這片光碟。
   onClose: () => void
 }
 
-// 選片開啟時蓋在碟片後面的一大片背板，接住「點擊碟片以外的地方」的事件。
-// 位置比碟片扇形排列稍微遠一點，同一條鏡頭前方的射線上，這樣碟片本身
-// 擋在前面優先被打中，點不到碟片的地方射線才會落到這片背板上。
-const BACKDROP_DISTANCE_PAST_DISCS = 1
-const BACKDROP_SIZE = 30
-
-// 每片碟外面包兩層 group：
-// - 外層（discGroupRefs）用 ref 抓住直接命令 position/scale/lookAt——碟片
-//   要飛的目標是「鏡頭前方」這個世界座標，跟盒子本身的姿態完全無關，所以
-//   這個元件故意不是 DVDCase 的子物件，是 Experience 底下平行的另一個元件。
-// - 內層（spinGroupRefs）負責閒置自轉，跟外層的位置/朝向動畫分開算，不會
-//   互相干擾：外層負責「面向鏡頭」，內層負責「原地慢慢轉」。
-export function DVDSelector({ isOpen, insertingProjectId, loadedProjectId, trayRef, onSelect, onClose }: DVDSelectorProps) {
-  const camera = useThree((state) => state.camera)
-  const discGroupRefs = useRef<(Group | null)[]>([])
-  const spinGroupRefs = useRef<(Group | null)[]>([])
-  const hoveredRef = useRef<boolean[]>(PROJECTS.map(() => false))
-  const backdropRef = useRef<Mesh>(null)
-  // 每片碟片「原本」（沒被 attach 進 tray 之前）的世界空間 parent——放片
-  // 動畫最後會把碟片 attach 到 tray 底下（見下面 insertingProjectId 分支），
-  // 這片碟片之後的 local position 就變成「相對 tray」而不是「相對世界」。
-  // 下次同一片又被選中、要重新用扇形展開那組世界座標（camera.position 等）
-  // 算 position 之前，得先把它 attach 回這個原本的 parent，不然世界座標
-  // 數字會被誤當成 tray 的 local 座標，飛到完全錯的地方。掛載後只需要抓
-  // 一次（碟片一開始的 parent 是 R3F 依照 JSX 結構掛好的，之後不會自己
-  // 變），所以用另一個 effect 在 mount 時存一次就好。
-  const worldParentRefs = useRef<(Object3D | null)[]>(PROJECTS.map(() => null))
+export function DVDSelector({ isOpen, isInserting, hasDisc, trayRef, onSelect, onClose }: DVDSelectorProps) {
+  const discGroupRef = useRef<Group>(null)
+  // 這片光碟的放片 timeline 是不是已經開始了——isInserting 這個 prop
+  // 在整段放片流程中只會從 false 變 true 一次、再變回 false 一次，不像
+  // 舊版（多片碟時代）有 isOpen/insertingProjectId 兩個各自獨立、可能
+  // 暫時不同步的 state 需要互相防呆，這裡單純防止同一次 isInserting=true
+  // 期間如果因為其他原因觸發額外 re-render，不要重新建一次 timeline。
+  const insertStartedRef = useRef(false)
 
   useEffect(() => {
-    discGroupRefs.current.forEach((group, i) => {
-      if (group) worldParentRefs.current[i] = group.parent
+    if (!isInserting) {
+      insertStartedRef.current = false
+      return
+    }
+    if (insertStartedRef.current) return
+    insertStartedRef.current = true
+
+    const group = discGroupRef.current
+    if (!group) return
+
+    gsap.killTweensOf(group.position)
+    gsap.killTweensOf(group.scale)
+
+    // 邊飛邊翻正、垂直降下、放下——三段式（不用像舊版先縮小：光碟本來就
+    // 是盒子裡的原始尺寸，選片畫面沒有把它放大過，不需要縮小這一段，見
+    // interaction.ts 裡 DVD_INSERT_FLY_DURATION 的說明）。
+    //
+    // 第1段的目標故意是 DVD_INSERT_CLEAR_POSITION（tray 正上方、但維持在
+    // TV 頂面以上的高度），不是直接飛向 tray 正上方——光碟起點在盒子裡
+    // （TV 頂上），終點在 tray（TV 前方貼地處），這兩點如果直接連一條線，
+    // 中間會直接穿過 TV 機身（使用者實測回報「移動過程中會穿過 TV」）。
+    // 先飛到這個「維持高度、水平對齊」的中繼點，再讓第2段整段垂直降下，
+    // 路徑就是「拿起來、越過電視上方、放下」，不會有任何一段跟機身重疊
+    // （見 scene.ts 裡 DVD_INSERT_CLEAR_POSITION 的說明）。
+    //
+    // quaternion 不能直接丟給 gsap tween 數值——那是對 x/y/z/w 四個分量
+    // 各自線性內插，內插完不保證是單位四元數，插值路徑也不是真正的球面
+    // 最短路徑，角度變化會不平順。改成 tween 一個 0~1 的代理值，每一幀
+    // 用 slerpQuaternions 手動算出正確的球面內插結果。目標角度用單位
+    // 四元數（identity）——DVD.tsx 的元件慣例是「本地 +Y 朝前」，group
+    // 本身沒有額外旋轉時 +Y 剛好對齊世界 +Y（往上），也就是「躺平、正面
+    // 朝上」，等於放進打開的 tray 裡的樣子。翻正跟「越過 TV 上方」這段
+    // 飛行同時發生，不需要額外的時間。
+    const fromQuat = group.quaternion.clone()
+    const toQuat = new Quaternion()
+    const rotateProxy = { t: 0 }
+    const hoverPosition = [
+      DVD_TRAY_INSERT_POSITION[0],
+      DVD_TRAY_INSERT_POSITION[1] + DVD_INSERT_HOVER_HEIGHT,
+      DVD_TRAY_INSERT_POSITION[2],
+    ]
+
+    const timeline = gsap.timeline()
+    // 第1段：飛到 tray 正上方、TV 頂面以上的高度，同時翻正。
+    timeline.to(
+      group.position,
+      {
+        x: DVD_INSERT_CLEAR_POSITION[0],
+        y: DVD_INSERT_CLEAR_POSITION[1],
+        z: DVD_INSERT_CLEAR_POSITION[2],
+        duration: DVD_INSERT_FLY_DURATION,
+        ease: 'power2.inOut',
+      },
+    )
+    timeline.to(
+      rotateProxy,
+      {
+        t: 1,
+        duration: DVD_INSERT_FLY_DURATION,
+        ease: 'power2.inOut',
+        onUpdate: () => group.quaternion.slerpQuaternions(fromQuat, toQuat, rotateProxy.t),
+      },
+      '<', // 跟上一段（飛越 TV 上方）同時開始，翻正跟飛行是同一個動作
+    )
+
+    // 第2段：從 TV 上方純垂直降到 tray 正上方（x/z 這段不變，只降 y）。
+    timeline.to(group.position, {
+      x: hoverPosition[0],
+      y: hoverPosition[1],
+      z: hoverPosition[2],
+      duration: DVD_INSERT_DESCEND_DURATION,
+      ease: 'power2.in',
     })
+
+    // 第3段：放下。從 tray 正上方做最後一小段下降到精確的插槽位置，模擬
+    // 「放下」而不是整段飛行一次到位。
+    timeline.to(group.position, {
+      x: DVD_TRAY_INSERT_POSITION[0],
+      y: DVD_TRAY_INSERT_POSITION[1],
+      z: DVD_TRAY_INSERT_POSITION[2],
+      duration: DVD_INSERT_DROP_DURATION,
+      ease: 'power2.in',
+    })
+
+    // 光碟落到插槽之後不會消失——attach 進 tray 底下（three.js
+    // Object3D.attach 會保留目前的世界座標，重新算一次相對 tray 的 local
+    // position，畫面上不會跳一下），之後 tray 自己關閉時的 position tween
+    // 會連帶把這個 group 也帶著移動，光碟因此會「跟著 player 一起關閉」。
+    // 場景只有一片光碟、沒有退片機制，attach 完之後這片光碟就會永遠留在
+    // tray 上，不需要再處理「被取代」之類的分支。
+    timeline.call(() => {
+      const tray = trayRef.current
+      if (tray) tray.attach(group)
+    })
+
+    return () => {
+      timeline.kill()
+    }
+  }, [isInserting, trayRef])
+
+  // 背板的世界座標/朝向——鏡頭姿態是固定常數（CAMERA_CASE_POSITION/
+  // TARGET），只要算一次，不用像舊版那樣每次開盒都重新讀「當下鏡頭」。
+  const backdropTransform = useMemo(() => {
+    const camPos = new Vector3(...CAMERA_CASE_POSITION)
+    const target = new Vector3(...CAMERA_CASE_TARGET)
+    const forward = target.clone().sub(camPos).normalize()
+    const position = camPos.clone().add(forward.clone().multiplyScalar(camPos.distanceTo(target) + BACKDROP_DISTANCE_PAST_DISC))
+    // PlaneGeometry 預設法向量是本地 +Z，轉成朝向鏡頭（跟 forward 相反）。
+    const quaternion = new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), forward.clone().negate())
+    return { position, quaternion }
   }, [])
-  // 記錄「放片 timeline 已經幫這片碟片開始了」——insertingProjectId 這個
-  // prop 在整段放片流程中維持同一個值不變，但下面這個 effect 的依賴之一
-  // （isOpen/discsReady）在流程開始當下會先是過渡用的舊值、再變成同步後
-  // 的新值，同一個 insertingProjectId 期間 effect 因此會連續 re-run 兩次
-  // （見下面 effect 內的長註解）。如果每次 re-run 都不分青紅皂白重新對
-  // 這片碟片 gsap.killTweensOf + 建一個新 timeline，第一個 timeline的
-  // position/scale tween 會被第二次的 killTweensOf 砍斷——被砍斷的 tween
-  // 會直接從 timeline 移除，导致 timeline 自己算出來的總長度跟著縮短，
-  // 使第一個 timeline 的 onComplete（把碟片 visible 設 false）在正確的
-  // 放下動畫還沒播完時就提前觸發，碟片會在半空中直接消失，不是真的放到
-  // 插槽裡才消失。用這個 ref 記住「這個 index 的碟片已經在跑放片 timeline
-  // 了」，同一個 insertingProjectId 期間第二次 re-run 直接跳過，讓第一個
-  // timeline 完整跑完，不要重新殺一次 tween、建一個新的。
-  const insertStartedRef = useRef<boolean[]>(PROJECTS.map(() => false))
-  // 記錄「這片碟片的放片 timeline 已經完整跑完、attach 在 tray 上了」，
-  // 在 timeline 自己的 .call() 裡同步設定（見下面 insertingProjectId 分支
-  // 尾端）——不能改用 loadedProjectId 這個外部 prop 判斷「已經放好了」：
-  // loadedProjectId 來自 Experience/MainScene（react-dom root），這個
-  // 元件在 react-three-fiber 的 Canvas root 裡，即使呼叫端把
-  // setInsertingProjectId(null) 跟更新 loadedProjectId 的 setState 放在
-  // 同一個同步流程裡呼叫，React 並不保證兩個 root 在同一個 commit 處理
-  // 完——實測過（暫時加 log 才抓到）真的會有一次 render 是
-  // insertingProjectId 已經變 null、loadedProjectId 卻還是舊值，這個
-  // 元件如果靠 loadedProjectId 判斷「該不該維持原樣」，就會在這個過渡
-  // 瞬間誤判成「沒人要」而把剛放好的碟片縮小隱藏——這正是使用者回報
-  // 「再次點開 player 裡面是空的」的根因。改用這個 ref，由 timeline 自己
-  // 在真正完成的當下同步設定，不受外部 prop 更新時機影響，才可靠。
-  const insertCompletedRef = useRef<boolean[]>(PROJECTS.map(() => false))
 
-  useEffect(() => {
-    // 用「這次開啟當下」鏡頭的位置/朝向算一次扇形排列的目標點，不逐幀跟隨
-    // ——Experience 那邊選片時會把 OrbitControls 鎖住，鏡頭不會在這段期間
-    // 移動，算一次就夠用，不用每幀重算。
-    const forward = new Vector3()
-    camera.getWorldDirection(forward)
-    const right = new Vector3().crossVectors(forward, camera.up).normalize()
-    const center = camera.position.clone().add(forward.multiplyScalar(DVD_SELECTOR_DISTANCE))
-
-    // 背板現在只在 isOpen 時才掛載（見 JSX），isOpen 變 false 的當下它就
-    // 已經從場景圖移除、ref 也跟著清空了，這裡不用再處理「關閉時怎麼藏
-    // 起來」——不存在的東西不用藏。
-    if (isOpen && backdropRef.current) {
-      const backdropCenter = camera.position
-        .clone()
-        .add(forward.clone().multiplyScalar(DVD_SELECTOR_DISTANCE + BACKDROP_DISTANCE_PAST_DISCS))
-      backdropRef.current.position.copy(backdropCenter)
-      backdropRef.current.lookAt(camera.position)
-    }
-
-    PROJECTS.forEach((project, i) => {
-      const group = discGroupRefs.current[i]
-      if (!group) return
-
-      // 放片 timeline 一旦為這片碟片開始了，就不要再被同一個
-      // insertingProjectId 期間的第二次 effect re-run 打斷——見上面
-      // insertStartedRef 宣告處的說明。直接 return，連 killTweensOf 都
-      // 不做，讓已經在跑的 timeline 自己跑完、自己在 onComplete 收尾。
-      if (insertingProjectId === project.id && insertStartedRef.current[i]) {
-        return
-      }
-      // 碟片不再是「正在放片」的那一片（放片流程還沒開始，或已經結束回到
-      // null）——重置旗標，下次這片被選中時才能重新啟動放片 timeline。
-      if (insertingProjectId !== project.id) {
-        insertStartedRef.current[i] = false
-      }
-
-      // 這片碟片之前已經完整放片完成、attach 在 tray 上了，而且現在沒有
-      // 正在對它跑放片 timeline——維持原樣（scale=1、visible=true），
-      // 不要被下面「isOpen 就扇形展開／否則縮小隱藏」的邏輯誤判成沒人
-      // 選中而縮小消失（見上面 insertCompletedRef 宣告處的說明）。只有
-      // 在 loadedProjectId 明確指向「別的作品」時才代表這片被取代了，
-      // 清掉旗標讓它照正常邏輯（多半是落進下面的 else 分支）退場；
-      // loadedProjectId 還沒同步到（暫時是 null）的過渡瞬間不算被取代，
-      // 繼續維持原樣。
-      if (insertingProjectId !== project.id && insertCompletedRef.current[i]) {
-        if (loadedProjectId !== null && loadedProjectId !== project.id) {
-          insertCompletedRef.current[i] = false
-        } else {
-          return
-        }
-      }
-
-      gsap.killTweensOf(group.position)
-      gsap.killTweensOf(group.scale)
-
-      // isOpen 這個 prop（Experience.tsx 傳進來的 discsReady）是透過另一個
-      // useEffect 跟 isDvdSelectorOpen 同步的，天生會晚一次 render——選片
-      // 當下 isDvdSelectorOpen/insertingProjectId 是同一個事件處理常式裡
-      // 同時設定的，但 discsReady 要等那個同步用的 effect 跑完才會跟著變
-      // false，中間會有一次 render 是「isOpen 還是舊的 true，
-      // insertingProjectId 已經是新值」這種不一致的組合。這裡如果只看
-      // isOpen 就進扇形展開分支，會在這個過渡瞬間把三片碟片全部重新
-      // fromTo 回「從鏡頭位置飛出、scale 從 0.2 長回去」的開場動畫，畫面
-      // 上看起來像選中的那片突然放大蓋到其他兩片（使用者回報的正是這個
-      // 現象）。多檢查 !insertingProjectId，只要放片流程已經開始，不管
-      // isOpen 傳進來是不是還沒同步到最新值，都不該再進扇形展開分支。
-      if (isOpen && !insertingProjectId) {
-        // 這片碟片上一輪放片流程如果走到底、被 attach 進 tray 過，parent
-        // 現在是 tray 不是原本的世界空間 parent——下面馬上要用
-        // camera.position 這種世界座標直接設 position，得先 attach 回
-        // 原本的 parent，不然這些世界座標會被當成「相對 tray」的 local
-        // 座標，飛到完全錯的地方（tray 本身有位移+180°旋轉）。
-        const worldParent = worldParentRefs.current[i]
-        if (worldParent && group.parent !== worldParent) {
-          worldParent.attach(group)
-        }
-
-        const offset = (i - (PROJECTS.length - 1) / 2) * DVD_SELECTOR_ARC_SPACING
-        const target = center.clone().add(right.clone().multiplyScalar(offset))
-
-        // 不能用 Object3D.lookAt()——那個對齊的是物件本地的 -Z 軸，但 DVD
-        // 光碟實際的正面法向量是本地 +Y 軸，不是 Z（見 DVD.tsx 的說明：
-        // Blender 端光碟是 Z-up 座標系裡「躺平」的物件，glTF 匯出時
-        // Blender 的 Z 軸對應到 three.js 的 Y 軸，不是原本誤植的 Z 軸；
-        // DVD.tsx 內部那個 180° 翻面只解決了「標籤面朝哪一邊」，沒有把
-        // 法向量本身從 Y 轉到 Z）。實測過：用 lookAt() 的結果是光碟幾乎
-        // 側面對著鏡頭（只看得到一條邊緣的細線），跟 DVD 本體疊在鏡頭
-        // 視線的水平面上時尤其明顯。改成手動算一個「本地 +Y 對齊到鏡頭
-        // 方向」的四元數，才會是碟片整個圓面朝向鏡頭。
-        //
-        // 方向要用 target（這次動畫最終停留的位置）算，不是用 group 當下
-        // （可能還在原地或上次收起來的位置）算——朝向只在這裡設一次，
-        // 之後飛行動畫只改 position/scale，角度要先對準最終停下來的地方。
-        const towardCamera = camera.position.clone().sub(target).normalize()
-        group.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), towardCamera)
-        group.visible = true
-
-        gsap.fromTo(
-          group.position,
-          { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-          {
-            x: target.x,
-            y: target.y,
-            z: target.z,
-            duration: DVD_SELECTOR_FLY_DURATION,
-            ease: 'back.out(1.4)',
-          },
-        )
-        gsap.fromTo(
-          group.scale,
-          { x: 0.2, y: 0.2, z: 0.2 },
-          {
-            x: DVD_SELECTOR_SCALE,
-            y: DVD_SELECTOR_SCALE,
-            z: DVD_SELECTOR_SCALE,
-            duration: DVD_SELECTOR_FLY_DURATION,
-            ease: 'back.out(1.4)',
-          },
-        )
-      } else if (insertingProjectId === project.id) {
-        // 選片後被挑中的那一片——跟其他片一起收起來時，不是原地縮小消失
-        // 也不是直線平移過去，是分三段的「拿起來、翻正放進去」動作（見
-        // interaction.ts 裡三個 DVD_INSERT_*_DURATION 常數的說明）。
-        //
-        // 動畫延後 DVD_SELECTOR_RETRACT_DURATION 才開始——等旁邊另外兩片
-        // 完全縮小消失之後，這片才開始動。原本是同時開始，這片還沒開始
-        // 縮小/移動時，跟旁邊還在收縮中、尺寸都還很大的另外兩片距離太近
-        // （彼此只隔 DVD_SELECTOR_ARC_SPACING=0.45，放大到 DVD_SELECTOR_
-        // SCALE 倍的碟片本身就很大），畫面上看起來像選中的那片突然放大
-        // 蓋到旁邊——其實是三片都還沒完全分開的錯覺，不是真的有誰變大。
-        insertStartedRef.current[i] = true
-        const spinGroup = spinGroupRefs.current[i]
-        const timeline = gsap.timeline({
-          delay: DVD_SELECTOR_RETRACT_DURATION,
-        })
-
-        // 第1段：原地縮小，從選片放大尺寸縮回接近原始大小，這時候還是
-        // 面向鏡頭、還沒開始移動——像「先把碟片捏小準備收好」。
-        timeline.to(group.scale, {
-          x: DVD_INSERT_SCALE_END,
-          y: DVD_INSERT_SCALE_END,
-          z: DVD_INSERT_SCALE_END,
-          duration: DVD_INSERT_SHRINK_DURATION,
-          ease: 'power2.out',
-        })
-
-        // 第2段：邊飛邊翻正。位置飛向 tray 正上方（留 DVD_INSERT_
-        // HOVER_HEIGHT 的高度差，不是一次到底，留給第3段做「放下」），
-        // 角度從「面向鏡頭」翻成「躺平、正面朝上」。
-        //
-        // quaternion 不能直接丟給 gsap tween 數值——那是對 x/y/z/w 四個
-        // 分量各自線性內插，內插完不保證是單位四元數，插值路徑也不是
-        // 真正的球面最短路徑，角度變化會不平順。改成 tween 一個 0~1 的
-        // 代理值，每一幀用 slerpQuaternions 手動算出正確的球面內插結果。
-        // 目標角度用單位四元數（identity）——DVD.tsx 的元件慣例是「本地
-        // +Y 朝前」，group 本身沒有額外旋轉時 +Y 剛好對齊世界 +Y（往上），
-        // 也就是「躺平、正面朝上」，等於放進打開的 tray 裡的樣子。
-        const fromQuat = group.quaternion.clone()
-        const toQuat = new Quaternion()
-        const rotateProxy = { t: 0 }
-        const hoverPosition = [
-          DVD_TRAY_INSERT_POSITION[0],
-          DVD_TRAY_INSERT_POSITION[1] + DVD_INSERT_HOVER_HEIGHT,
-          DVD_TRAY_INSERT_POSITION[2],
-        ]
-        timeline.to(
-          group.position,
-          { x: hoverPosition[0], y: hoverPosition[1], z: hoverPosition[2], duration: DVD_INSERT_FLY_DURATION, ease: 'power2.inOut' },
-        )
-        timeline.to(
-          rotateProxy,
-          {
-            t: 1,
-            duration: DVD_INSERT_FLY_DURATION,
-            ease: 'power2.inOut',
-            onUpdate: () => group.quaternion.slerpQuaternions(fromQuat, toQuat, rotateProxy.t),
-          },
-          '<', // 跟上一段（飛向正上方）同時開始，翻正跟飛行是同一個動作
-        )
-
-        // spinGroup 閒置自轉留下的角度也要一起歸零，不然「躺平」只翻對了
-        // 外層 discGroup，內層還帶著閒置自轉當下累積的角度，兩層疊起來
-        // 還是歪的。跟 handleHoverChange 轉正時同樣要先 wrap 到最近的 0
-        // 再 tween，避免累積角度太大時硬轉好幾圈。
-        if (spinGroup) {
-          spinGroup.rotation.x = wrapToNearestZero(spinGroup.rotation.x)
-          spinGroup.rotation.y = wrapToNearestZero(spinGroup.rotation.y)
-          gsap.killTweensOf(spinGroup.rotation)
-          timeline.to(
-            spinGroup.rotation,
-            { x: 0, y: 0, z: 0, duration: DVD_INSERT_FLY_DURATION, ease: 'power2.inOut' },
-            '<',
-          )
-        }
-
-        // 第3段：放下。從 tray 正上方做最後一小段下降到精確的插槽位置，
-        // 模擬「放下」的動作，不是整段飛行一次到位。
-        timeline.to(group.position, {
-          x: DVD_TRAY_INSERT_POSITION[0],
-          y: DVD_TRAY_INSERT_POSITION[1],
-          z: DVD_TRAY_INSERT_POSITION[2],
-          duration: DVD_INSERT_DROP_DURATION,
-          ease: 'power2.in',
-        })
-
-        // 碟片落到插槽之後不是馬上消失——使用者回報「放到 player 後，下一
-        // 偵就消失」，原本這裡是 timeline 的 onComplete 直接把 visible
-        // 設 false，跟 tray 關閉的動畫完全無關，看起來像碟片憑空消失，不是
-        // 跟著 player 一起收起來。改成把這個 group attach 進 tray 底下
-        // （three.js Object3D.attach 會保留目前的世界座標，重新算一次
-        // 相對 tray 的 local position，畫面上不會跳一下）。之後 tray 自己
-        // 關閉時的 position tween 會連帶把這個 group 也帶著移動，碟片才會
-        // 「跟著 player 一起關閉」而不是憑空消失。attach 完之後這片碟片
-        // 就會一直留在 tray 上（visible、scale=1）——同步設定
-        // insertCompletedRef，insertingProjectId 一變回 null，上面的判斷
-        // 就會接手讓它維持原樣，不會再進到下面的 else 分支被縮小隱藏，
-        // 這樣使用者事後手動點開 tray 才看得到碟片還在裡面。
-        timeline.call(() => {
-          const tray = trayRef.current
-          if (tray) tray.attach(group)
-          insertCompletedRef.current[i] = true
-        })
-      } else {
-        // 這裡現在只會是「沒被選中、扇形展開後又收起來的另外兩片」，或
-        // 「player 裡換了一片新的、這片被取代掉」的情況——真正已經放進
-        // player 且還沒被取代的那片碟片會被上面的 insertCompletedRef
-        // 判斷攔截、不會走到這裡。換片瞬間（新片開始插入、舊片還沒被
-        // loadedProjectId 排除）兩片碟片可能短暫同時 attach 在 tray 上
-        // 重疊——目前一次只會有一個 player，使用者流程也還沒有「播放中
-        // 重新選片」這種操作，暫時不特別處理，之後真的要支援換片再回來
-        // 看這裡。
-        gsap.to(group.scale, {
-          x: 0,
-          y: 0,
-          z: 0,
-          duration: DVD_SELECTOR_RETRACT_DURATION,
-          ease: 'power2.in',
-          onComplete: () => {
-            group.visible = false
-          },
-        })
-      }
-    })
-  }, [isOpen, insertingProjectId, loadedProjectId, camera, trayRef])
-
-  // 閒置自轉——不受 hover 影響的碟片，每幀累加內層 group 的 rotation。
-  // hover 中的碟片被排除在外（見下面 hoveredRef 判斷），讓它維持
-  // handleHoverChange 轉正的角度，不會被這裡的累加蓋掉。
-  useFrame((_, delta) => {
-    if (!isOpen) return
-    spinGroupRefs.current.forEach((group, i) => {
-      if (!group || hoveredRef.current[i]) return
-      group.rotation.x += delta * DVD_SELECTOR_SPIN_SPEED_X
-      group.rotation.y += delta * DVD_SELECTOR_SPIN_SPEED_Y
-    })
-  })
-
-  const handleHoverChange = (i: number) => (hovering: boolean) => {
-    hoveredRef.current[i] = hovering
-    const spinGroup = spinGroupRefs.current[i]
-    if (!spinGroup) return
-
-    // hover 時停止累加、轉正對鏡頭（回到 rotation 0，因為外層 group 已經
-    // 對齊鏡頭方向了，內層歸零角度疊上去就是「正面朝向鏡頭」）；放開游標
-    // 不用轉回去，直接從目前角度繼續累加即可。
-    if (hovering) {
-      // rotation.x/y 是每幀累加、沒有 wrap 回 [0, 2π) ——閒置轉久一點
-      // （例如碟片飛出來放著沒人動超過一圈半），數值可能已經是 6、8 甚至
-      // 更大。直接 tween 到 0 會讓 gsap 照數字大小硬轉那麼多圈才會停，
-      // 使用者會看到碟片瞬間狂轉一大圈才定住，畫面在轉的過程中會經過
-      // 各種奇怪的側面角度，看起來像壞掉（實測過，回報「hover 變成很怪
-      // 的形狀」正是這個原因，不是單純的朝向搞錯）。先把數值 wrap 到
-      // 數學上等價、但落在 [-π, π] 內最接近 0 的角度，tween 才會是一段
-      // 不超過半圈的最短路徑，瞬間定住的視覺效果不會經過奇怪的中間角度
-      // （wrapToNearestZero 定義在檔案最上面，選片放進 player 那段動畫
-      // 也要用同一個函式）。
-      spinGroup.rotation.x = wrapToNearestZero(spinGroup.rotation.x)
-      spinGroup.rotation.y = wrapToNearestZero(spinGroup.rotation.y)
-
-      gsap.killTweensOf(spinGroup.rotation)
-      gsap.to(spinGroup.rotation, {
-        x: 0,
-        y: 0,
-        z: 0,
-        duration: DVD_SELECTOR_HOVER_SNAP_DURATION,
-        ease: 'power2.out',
-      })
-    }
+  // DVD.tsx 內部的 handleClick 自己會呼叫 event.stopPropagation()，這裡
+  // 不用再喊一次——只需要在真的要不要觸發 onSelect 之間把關（盒子特寫
+  // 視角沒開、已經放過片、或正在放片中都不該再觸發一次選片）。
+  const handleDiscSelect = () => {
+    if (!isOpen || hasDisc || isInserting) return
+    onSelect()
   }
 
   const handleBackdropClick = (event: ThreeEvent<MouseEvent>) => {
@@ -418,38 +191,26 @@ export function DVDSelector({ isOpen, insertingProjectId, loadedProjectId, trayR
 
   return (
     <>
-      {/* 只有選片開啟時才掛載——react-three-fiber 的事件系統是在物件掛載、
-          handler 註冊的當下就把它記進可被 raycast 命中的清單，之後不會
-          因為 visible 變 false 就跳過，跟 DOM 的「display:none 元素不會
-          收到點擊」是兩回事（實測過：把這片背板留著只是切 visible，選片
-          從沒開過、backdropRef 也還沒被下面的 effect 定位過，它就停在
-          預設 position(0,0,0)、30x30 那麼大的一片，直接把 TV/DVD player/
-          DVD 盒罩住，只要點擊沒有精準命中那些物件自己的可點擊範圍，這片
-          隱形背板就會搶先接住，呼叫 onClose()——選片本來就是關的，
-          onClose 等於沒作用，使用者只會看到「點了沒反應」。收起來後也
-          一樣：position 停在上次選片時鏡頭前方的位置，沒有跟著歸位，
-          同一塊區域會繼續擋著後續點擊。改成整個元件只在 isOpen 時才
-          掛載，關閉時直接從場景圖移除，這樣才是真的「不會被點到」，不是
-          只是「看不到但還擋著」。 */}
+      {/* 只有盒子特寫視角開啟時才掛載——react-three-fiber 的事件系統是在
+          物件掛載、handler 註冊的當下就把它記進可被 raycast 命中的清單，
+          之後不會因為 visible 變 false 就跳過（舊版 DVDSelector 踩過的坑，
+          見 git 歷史），改成整個元件只在 isOpen 時才掛載，關閉時直接從
+          場景圖移除，才是真的「不會被點到」。 */}
       {isOpen && (
-        <mesh ref={backdropRef} onClick={handleBackdropClick}>
+        <mesh position={backdropTransform.position} quaternion={backdropTransform.quaternion} onClick={handleBackdropClick}>
           <planeGeometry args={[BACKDROP_SIZE, BACKDROP_SIZE]} />
           <meshBasicMaterial color="#000000" />
         </mesh>
       )}
 
-      {PROJECTS.map((project, i) => (
-        <group
-          key={project.id}
-          ref={(el) => { discGroupRefs.current[i] = el }}
-          visible={false}
-          scale={0}
-        >
-          <group ref={(el) => { spinGroupRefs.current[i] = el }}>
-            <DVD project={project} onSelect={onSelect} onHoverChange={handleHoverChange(i)} />
-          </group>
-        </group>
-      ))}
+      {/* 這片光碟永遠掛載、永遠可見——靜置在盒子裡的姿態就是它的初始
+          position/rotation（跟舊版裝飾碟原本在 DVDCase.tsx 裡的位置對齊，
+          見 scene.ts 兩個 DVD_CASE_DISC_REST_* 常數的說明），選中之後
+          用 ref 直接改 position/quaternion 飛進 player，不需要另外處理
+          「沒被選中時要不要隱藏」——場景只有這一片，沒有其他碟需要比較。 */}
+      <group ref={discGroupRef} position={DVD_CASE_DISC_REST_POSITION} rotation={DVD_CASE_DISC_REST_ROTATION}>
+        <DVD project={DISC_PROJECT} onSelect={handleDiscSelect} />
+      </group>
     </>
   )
 }

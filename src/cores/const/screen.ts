@@ -54,9 +54,17 @@ export const SCREEN_ZOOM_OUT_DURATION = 0.6 // 秒
 // 起來真正「平整、正面」的做法，跟預設鏡頭共用同一顆 three.js camera，
 // 靠 gsap 同時把 fov 也補間過去，套用完後要記得呼叫
 // camera.updateProjectionMatrix()，這兩組鏡頭姿態各自搭配一個對應的 fov。
-export const CAMERA_FOCUS_FOV = 28
-export const CAMERA_FOCUS_TARGET: [number, number, number] = [0, 0.3, 0.14]
-export const CAMERA_FOCUS_POSITION: [number, number, number] = [0, 0.3, 1.15]
+//
+// 原本這組構圖只填滿螢幕本身（target y=0.3、距離較近），DVD player 只
+// 露出頂端一條窄邊、盒子幾乎整個被裁到畫面外——使用者希望「平常看到的
+// 畫面」是 TV、player、盒子三個都完整入鏡，不是只看到電視螢幕特寫。
+// 改成 target 往下移到整組（player 底部 y=0 ~ 盒子頂面 y≈0.5）的垂直
+// 中心附近、鏡頭拉遠+ fov 加大到 32，瀏覽器截圖跟使用者給的參考構圖
+// 比對調出來的，螢幕文字仍然讀得清楚，同時三個物件都完整在畫面裡、
+// 上下都留了一點邊界，不會貼著畫面邊緣。
+export const CAMERA_FOCUS_FOV = 32
+export const CAMERA_FOCUS_TARGET: [number, number, number] = [0, 0.25, 0.14]
+export const CAMERA_FOCUS_POSITION: [number, number, number] = [0, 0.34, 1.6]
 
 // 全螢幕運鏡的鏡頭姿態——比聚焦姿態更貼近螢幕，構圖上螢幕要幾乎填滿
 // 整個視窗（因為運鏡結束後緊接著會切換成真正的 2D DOM 疊層蓋滿視窗，

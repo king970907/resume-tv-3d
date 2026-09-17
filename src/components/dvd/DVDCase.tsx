@@ -11,9 +11,6 @@ import {
   DVD_CASE_WIDTH,
 } from '@/cores/const/scene'
 import { DVD_CASE_OPEN_ANGLE, DVD_CASE_OPEN_DURATION } from '@/cores/const/interaction'
-import { PROJECTS } from '@/data/projects'
-import type { Project } from '@/cores/types/project'
-import { DVD } from './DVD'
 
 // 真實模型從 Blender 匯出（blender-project/models/dvd-case/dvd-case.blend
 // → public/models/dvd-case.glb）。跟 TV/DVD player 不同的是，Blender 端
@@ -33,29 +30,29 @@ import { DVD } from './DVD'
 // 量，導致 case 看起來像沒躺平、站得很高）。
 type GLTFNodes = Record<string, Object3D>
 
-// 盒子裡的碟片純粹是裝飾——真正的資料在 DVDSelector 那組飄浮碟片裡。固定
-// 一片，不要跟著 PROJECTS 數量長：疊太多片會像一疊沒對齊的百葉窗（3 片
-// 就已經看得出一圈一圈的邊緣，4、5 片只會更明顯），而且盒子本來就不該
-// 暗示「裡面裝著跟項目數量一樣多的碟」。
-const DECORATIVE_DISC_PROJECT: Project = PROJECTS[0]
-
 interface DVDCaseProps {
   // 受控元件——開闔狀態由 Experience.tsx 統一管理（跟 DVDSelector 共用
   // 同一個布林值），這樣選片畫面收起來的時候，盒子會自動跟著關，不用
-  // 額外同步兩個各自獨立的開關狀態。
+  // 額外同步兩個各自獨立的開關狀態。onToggle 的門檻（idle 階段、沒有片
+  // 正在放、還沒放過片）都在 Experience.tsx 那邊的呼叫處統一判斷，這個
+  // 元件不重複檢查。
   isOpen: boolean
   onToggle: () => void
 }
 
-// 碟片疊在夾持花瓣卡榫上方的高度，見
-// blender-project/models/dvd-case/notes.md 的「光碟裝配方向」那節。
-const DISC_REST_Z = 0.0062
-
 export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
   const { nodes } = useGLTF('/models/dvd-case.glb') as unknown as { nodes: GLTFNodes }
   const frontRef = useRef<Object3D>(null)
+  // 前蓋開過一次之後就不再關回去——使用者回報選了光碟之後（isOpen 變
+  // false，鏡頭退回螢幕正面）盒蓋也跟著關上，看起來像「隨手把盒子闔上」
+  // ，改成盒蓋是單向的：只要開過一次，之後 isOpen 變 false（不管是選了
+  // 光碟、還是點背板取消）都不再播放關闔動畫，維持開著留在 TV 頂上，
+  // 比較像「拿出光碟後隨手把盒子開著放在旁邊」。用 ref 記，不用 state，
+  // 純粹是動畫該往哪個角度補間的旗標，不需要觸發 re-render。
+  const hasOpenedRef = useRef(false)
 
   useEffect(() => {
+    if (isOpen) hasOpenedRef.current = true
     const front = frontRef.current
     if (!front) return
     gsap.killTweensOf(front.rotation)
@@ -66,9 +63,11 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
     //
     // DVD_CASE_OPEN_ANGLE 是正值——瀏覽器實測過，負值會讓前蓋往下往前
     // 甩，掀開時整片蓋到 TV 螢幕/旋鈕那一側（使用者回報「開錯邊」）；
-    // 正值前蓋才是往後上方掀開，不會擋到 TV。
+    // 正值前蓋才是往後上方掀開，不會擋到 TV。目標角度看 hasOpenedRef，
+    // 不是直接看 isOpen——開過一次之後即使 isOpen 變 false，目標角度還是
+    // 維持 DVD_CASE_OPEN_ANGLE，蓋子就不會再關回去。
     gsap.to(front.rotation, {
-      z: isOpen ? DVD_CASE_OPEN_ANGLE : 0,
+      z: hasOpenedRef.current ? DVD_CASE_OPEN_ANGLE : 0,
       duration: DVD_CASE_OPEN_DURATION,
       ease: 'power2.out',
     })
@@ -103,17 +102,10 @@ export function DVDCase({ isOpen, onToggle }: DVDCaseProps) {
 
         <primitive object={nodes.DVD_Case_Front} ref={frontRef} />
 
-        {/* 盒子裡靜靜躺著一片裝飾用的碟——真正拿來選的那組是 DVDSelector，
-            開盒後在鏡頭前面用世界座標飛出來，不會被這個盒子的姿態影響。
-            水平位置(花瓣卡榫中心)用跟 DVD_Case 原始 Blender 座標同一套
-            (CASE_WIDTH/2 給 X)，這樣才會跟上面 primitive 一起被外層的
-            置中 group 帶到正確位置；Y/Z 套用上面說明的軸對調規則——
-            DISC_REST_Z(厚度方向的懸浮高度)放 Y，水平的另一軸放
-            -CASE_HEIGHT/2（負號，同樣是 Blender Y 對應 three.js -Z）。 */}
-        <DVD
-          project={DECORATIVE_DISC_PROJECT}
-          position={[DVD_CASE_WIDTH / 2, DISC_REST_Z, -DVD_CASE_HEIGHT / 2]}
-        />
+        {/* 盒子裡原本躺著一片純裝飾、不能點的碟——現在場景只留一片光碟，
+            真的可以點、可以飛進 player 的那片改由 DVDSelector.tsx 在世界
+            座標渲染（用 DVD_CASE_DISC_REST_POSITION/ROTATION 對齊到這片
+            裝飾碟原本在的位置，見 scene.ts 的說明），這裡不用再放一份。 */}
       </group>
     </group>
   )

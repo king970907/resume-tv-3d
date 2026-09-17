@@ -81,9 +81,50 @@ export const DVD_CASE_REST_POSITION: [number, number, number] = [
 // （垂直軸）的隨性擺放角度，角度憑感覺抓，看畫面調。
 export const DVD_CASE_REST_ROTATION: [number, number, number] = [0, 0.4, 0]
 
+// 盒子裡那片可以點擊、放進 player 的光碟——靜置姿態直接用瀏覽器
+// getWorldPosition()/getWorldQuaternion() 量出來的世界座標數字（不是手算
+// DVD_CASE_REST_POSITION/ROTATION 疊 DVDCase.tsx 內部兩層置中/裝配偏移
+// 反推的——那樣疊多層 transform 手算容易算錯，直接量最後結果最可靠）。
+// 量出來的世界四元數換算成 <DVD rotation={...}> 這個 prop 要填的 euler
+// 之後，剛好等於 DVD_CASE_REST_ROTATION 本身（因為 DVDCase.tsx 內部
+// 那兩層 group 只有 DVD_CASE_REST_ROTATION 這一個旋轉來源，置中用的那層
+// 只有位移沒有旋轉，DVD.tsx 自己內部固定的 180° 翻面在換算時已經抵消
+// 掉了）——這裡沒有直接重用 DVD_CASE_REST_ROTATION 這個名字，是因為兩者
+// 語意不同（一個是盒子本身的擺放角度，一個是光碟的靜置姿態），數字相同
+// 純屬這個場景的巧合，之後任一邊改了都不能假設另一邊會跟著對。
+export const DVD_CASE_DISC_REST_POSITION: [number, number, number] = [0.05, 0.4942, 0.08]
+export const DVD_CASE_DISC_REST_ROTATION: [number, number, number] = [0, 0.4, 0]
+
+// 光碟從盒子飛進 player 的路上，要先繞到 tray 正上方、同時維持在 TV 頂面
+// 以上的高度，再垂直降下——如果直接從盒子（在 TV 頂上，y≈0.494）走直線
+// 飛到 tray（在 TV 前方貼地處，y≈0.084、z 也差很多），中間那段直線會
+// 直接穿過 TV 機身（使用者實測回報「移動過程中會穿過 TV」）。改成先飛到
+// 這個「tray 正上方、y 還維持在 TV 頂面以上」的中繼點，水平位置對齊之後
+// 才整段垂直降下，路徑就會是「拿起來、越過電視上方、放下」，任何一段都
+// 不會跟 TV 機身的體積重疊。
+//
+// y=0.55：TV 頂面世界座標是 DVD_PLAYER_HEIGHT+TV_HEIGHT≈0.488，光碟原本
+// 靜置在盒子裡就已經比這個高一點（0.4942，盒子本身的厚度墊出來的），這裡
+// 再往上留約 6cm 的安全邊界，蓋過機身頂面任何細節凸起（旋鈕面板、LED
+// 燈殼等），不用算得剛剛好卡在頂面。x/z 直接用 tray 插槽的座標，這個
+// 中繼點的用途只有「維持高度、水平對齊」，不需要额外的水平偏移。
+export const DVD_INSERT_CLEAR_POSITION: [number, number, number] = [
+  DVD_TRAY_INSERT_POSITION[0],
+  0.55,
+  DVD_TRAY_INSERT_POSITION[2],
+]
+
 export const CAMERA_POSITION: [number, number, number] = [0.55, 0.75, 1.9]
 export const CAMERA_TARGET: [number, number, number] = [0, 0.25, 0]
 export const CAMERA_FOV = 45
+
+// 開盒後的「盒子特寫」鏡頭姿態——跟 screen.ts 的 CAMERA_FOCUS_* 同一種
+// 「縮小 FOV + 拉遠對應距離」長焦式構圖手法（近距離用標準 FOV 拍會有
+// 明顯廣角透視變形），瀏覽器實測調出由上往下看整個開啟盒子的構圖，光碟
+// 清楚置中、盒蓋跟 DVD player 一角露出來給畫面一點空間脈絡。
+export const CAMERA_CASE_POSITION: [number, number, number] = [0.05, 1.15, 0.32]
+export const CAMERA_CASE_TARGET: [number, number, number] = [0.05, 0.4942, 0.08]
+export const CAMERA_CASE_FOV = 30
 
 export const ORBIT_MIN_DISTANCE = 0.6
 export const ORBIT_MAX_DISTANCE = 3.5

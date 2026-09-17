@@ -9,15 +9,21 @@ import type { ScreenContent } from '@/components/tv/RetroTV'
 import { DVDPlayer } from '@/components/dvd/DVDPlayer'
 import { DVDCase } from '@/components/dvd/DVDCase'
 import { DVDSelector } from '@/components/dvd/DVDSelector'
-import { CAMERA_POSITION, CAMERA_TARGET, ORBIT_MAX_DISTANCE, ORBIT_MIN_DISTANCE } from '@/cores/const/scene'
 import {
+  CAMERA_CASE_FOV,
+  CAMERA_CASE_POSITION,
+  CAMERA_CASE_TARGET,
+  CAMERA_POSITION,
+  CAMERA_TARGET,
+  ORBIT_MAX_DISTANCE,
+  ORBIT_MIN_DISTANCE,
+} from '@/cores/const/scene'
+import {
+  DVD_CASE_VIEW_DURATION,
+  DVD_INSERT_DESCEND_DURATION,
   DVD_INSERT_DROP_DURATION,
   DVD_INSERT_FLY_DURATION,
   DVD_INSERT_SETTLE_PAUSE,
-  DVD_INSERT_SHRINK_DURATION,
-  DVD_SELECTOR_CAMERA_DISTANCE,
-  DVD_SELECTOR_CAMERA_DOLLY_DURATION,
-  DVD_SELECTOR_RETRACT_DURATION,
   DVD_TRAY_ANIM_DURATION,
   SCENE_DIM_DURATION,
   SCENE_DIM_FACTOR,
@@ -36,6 +42,7 @@ import {
   SCREEN_ZOOM_OUT_DURATION,
 } from '@/cores/const/screen'
 import { getResponsiveCameraPosition } from '@/cores/utils/responsiveCamera'
+import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import type { ScreenPage } from '@/data/screenPages'
 import type { ScreenPhase } from '@/cores/types/screenPhase'
@@ -142,18 +149,15 @@ export function Experience({
   }, [phase, viewportSize, camera])
 
   const [isDvdSelectorOpen, setIsDvdSelectorOpen] = useState(false)
-  // 跟 isDvdSelectorOpen 分開——盒蓋掀開/場景變暗要立刻觸發，但碟片扇形
-  // 展開要等鏡頭確定拉到安全距離之後才能算位置（DVDSelector 是用「開啟
-  // 當下」的鏡頭位置算扇形排列，鏡頭如果太近，碟片會直接卡進 TV 機身）。
-  const [discsReady, setDiscsReady] = useState(false)
 
-  // 選片後把碟片放進 DVD player 的流程——兩個獨立的狀態：isDvdPlayerOpen
+  // 選片後把光碟放進 DVD player 的流程——兩個獨立的狀態：isDvdPlayerOpen
   // 控制 tray 開闔（跟 DVDCase 的 isOpen 同一套受控元件寫法，這裡多了
   // 「不是使用者手動點才開」的用法：選片流程會直接呼叫 setIsDvdPlayerOpen
-  // 把 tray 打開/關上）；insertingProjectId 告訴 DVDSelector「這一片碟片
-  // 現在要飛去 player，不是跟其他片一樣原地縮小」，流程跑完就清空。
+  // 把 tray 打開/關上）；isInserting 告訴 DVDSelector「這片光碟現在要飛去
+  // player」，流程跑完就清空。場景現在只留一片光碟（不再是陣列式的
+  // insertingProjectId 比對哪一個 id），布林值就夠用。
   const [isDvdPlayerOpen, setIsDvdPlayerOpen] = useState(false)
-  const [insertingProjectId, setInsertingProjectId] = useState<string | null>(null)
+  const [isInserting, setIsInserting] = useState(false)
   const insertTimersRef = useRef<gsap.core.Tween[]>([])
 
   useEffect(() => {
@@ -163,40 +167,63 @@ export function Experience({
     }
   }, [])
 
+  // 開盒後鏡頭運鏡到盒子特寫姿態（由上往下看光碟，見 scene.ts 的
+  // CAMERA_CASE_POSITION/TARGET/FOV），關閉時退回螢幕聚焦姿態——開盒
+  // 只可能發生在 phase==='idle'（見下面 DVDCase 的 onToggle 門檻），這個
+  // phase 底下鏡頭本來就是停在 CAMERA_FOCUS_* 那組姿態，不用退回最外層
+  // 的 CAMERA_POSITION。跟下面「螢幕流程運鏡」那個 effect 是同一種手法
+  // （同時補間 position/target/fov），只是這裡换成用 isDvdSelectorOpen
+  // 這個獨立的布林狀態觸發，不是 phase 狀態機的一部分——開盒/關盒語意上
+  // 跟「看電視螢幕」是平行的兩件事，不應該塞進同一個狀態機。
   useEffect(() => {
-    if (!isDvdSelectorOpen) {
-      // 收起來不用管鏡頭有沒有拉遠過——直接讓碟片收回去就好，鏡頭位置
-      // 沒有要求要還原。
-      gsap.killTweensOf(camera.position)
-      // oxlint-disable-next-line react/set-state-in-effect
-      setDiscsReady(false)
-      return
-    }
-
-    const distance = camera.position.distanceTo(new Vector3(...CAMERA_TARGET))
-    if (distance >= DVD_SELECTOR_CAMERA_DISTANCE) {
-      // 鏡頭已經夠遠，不用拉——直接標記碟片可以展開，不用等一個不會發生
-      // 的動畫。
-      // oxlint-disable-next-line react/set-state-in-effect
-      setDiscsReady(true)
-      return
-    }
-
-    // 沿著「目標→目前鏡頭位置」的方向往外拉，不是沿著鏡頭朝向——這樣
-    // 拉遠的過程中畫面看起來像純粹後退，不會因為順便轉向而讓使用者暈。
-    const direction = camera.position.clone().sub(new Vector3(...CAMERA_TARGET)).normalize()
-    const targetPosition = new Vector3(...CAMERA_TARGET).addScaledVector(direction, DVD_SELECTOR_CAMERA_DISTANCE)
+    if (!controls) return
+    if (!('isPerspectiveCamera' in camera) || !camera.isPerspectiveCamera) return
+    // 這個 effect 依賴 isDvdSelectorOpen，第一次 render（mount）時也會跑
+    // 一次——如果沒有這個門檻，開場 intro/focusing 階段（isDvdSelectorOpen
+    // 這時候還是預設值 false）也會被這裡的邏輯搶著把鏡頭補間到
+    // CAMERA_FOCUS_POSITION，蓋掉 intro 階段自己該有的遠景，畫面上看起來
+    // 像「一開場鏡頭就已經是聚焦姿態」，使用者點擊繼續後螢幕流程自己的
+    // 運鏡 effect 又補一次幾乎沒有位移的動畫，感覺像「多播一次」——這正是
+    // 使用者回報的現象。開盒只可能發生在 phase==='idle'（見下面 DVDCase
+    // 的 onToggle 門檻），這裡也只在 idle 階段才處理，intro/focusing/
+    // loading/zooming-* 這些階段自己的運鏡 effect 不會被打斷。
+    if (phase !== 'idle') return
 
     gsap.killTweensOf(camera.position)
-    gsap.to(camera.position, {
-      x: targetPosition.x,
-      y: targetPosition.y,
-      z: targetPosition.z,
-      duration: DVD_SELECTOR_CAMERA_DOLLY_DURATION,
-      ease: 'power2.out',
-      onComplete: () => setDiscsReady(true),
-    })
-  }, [isDvdSelectorOpen, camera])
+    gsap.killTweensOf(camera)
+    gsap.killTweensOf(controls.target)
+
+    const targetPosition = isDvdSelectorOpen ? CAMERA_CASE_POSITION : CAMERA_FOCUS_POSITION
+    const targetLookAt = isDvdSelectorOpen ? CAMERA_CASE_TARGET : CAMERA_FOCUS_TARGET
+    const targetFov = isDvdSelectorOpen ? CAMERA_CASE_FOV : CAMERA_FOCUS_FOV
+
+    const timeline = gsap.timeline()
+    timeline.to(
+      camera.position,
+      { x: targetPosition[0], y: targetPosition[1], z: targetPosition[2], duration: DVD_CASE_VIEW_DURATION, ease: 'power2.inOut' },
+      0,
+    )
+    timeline.to(
+      controls.target,
+      {
+        x: targetLookAt[0],
+        y: targetLookAt[1],
+        z: targetLookAt[2],
+        duration: DVD_CASE_VIEW_DURATION,
+        ease: 'power2.inOut',
+        onUpdate: () => controls.update(),
+      },
+      0,
+    )
+    timeline.to(
+      camera,
+      { fov: targetFov, duration: DVD_CASE_VIEW_DURATION, ease: 'power2.inOut', onUpdate: () => camera.updateProjectionMatrix() },
+      0,
+    )
+    return () => {
+      timeline.kill()
+    }
+  }, [isDvdSelectorOpen, phase, camera, controls])
 
   useEffect(() => {
     const lights = [ambientRef.current, keyLightRef.current, fillLightRef.current, accentLightRef.current]
@@ -215,26 +242,10 @@ export function Experience({
     })
 
     if (selectorLightRef.current) {
-      if (isDvdSelectorOpen) {
-        // 選片燈原本釘死在世界座標的固定點——碟片扇形排列的位置是跟著
-        // 「開盒當下的鏡頭」算的（見 DVDSelector.tsx），使用者開盒前如果把
-        // 鏡頭轉到別的角度，固定位置的燈就可能完全對不上碟片的方向，碟片
-        // 幾乎沒被照到、只剩邊緣一絲高光，實測過（把鏡頭轉到側面再開盒）
-        // 確實會整片死黑，跟這次回報的「遮罩太暗」是同一個成因。
-        //
-        // 改成每次開盒當下，用「鏡頭位置＋鏡頭前方＋鏡頭上方」現算一個
-        // 跟著鏡頭走的位置——效果像相機上加了一顆隨機身轉的補光燈，不管
-        // 使用者開盒前轉到哪個角度，選片時碟片前方一定有光。跟 DVDSelector
-        // 算扇形排列用的是同一套 forward/up 向量，兩邊天然對得上。
-        const forward = new Vector3()
-        camera.getWorldDirection(forward)
-        const lightPosition = camera.position
-          .clone()
-          .addScaledVector(forward, 0.5)
-          .addScaledVector(camera.up, 0.4)
-        selectorLightRef.current.position.copy(lightPosition)
-      }
-
+      // 選片燈的位置現在是固定的（見 JSX 裡的 position）——盒子特寫的鏡頭
+      // 姿態本身就是固定常數（CAMERA_CASE_POSITION/TARGET），不再是「使用者
+      // 開盒前鏡頭剛好轉到哪」這種會變動的東西，這裡不用再每次開盒都現算
+      // 一次跟著鏡頭走的位置（舊版「碟片飛到鏡頭前」的設計才需要這樣做）。
       gsap.killTweensOf(selectorLightRef.current)
       gsap.to(selectorLightRef.current, {
         intensity: isDvdSelectorOpen ? SELECTOR_LIGHT_INTENSITY : 0,
@@ -249,8 +260,8 @@ export function Experience({
     // 流程不在 idle 階段時都不能讓使用者自由轉鏡頭，全部條件都要滿足才
     // 解鎖。
     // oxlint-disable-next-line react/immutability
-    if (controls) controls.enabled = !isDvdSelectorOpen && !insertingProjectId && phase === 'idle'
-  }, [isDvdSelectorOpen, insertingProjectId, controls, camera, phase])
+    if (controls) controls.enabled = !isDvdSelectorOpen && !isInserting && phase === 'idle'
+  }, [isDvdSelectorOpen, isInserting, controls, phase])
 
   // 螢幕流程的鏡頭運鏡/計時——每個 phase 進來的當下決定要不要動鏡頭、要
   // 等多久才進下一步，統一集中在這裡，MainScene 只負責存 phase 本身跟
@@ -374,42 +385,39 @@ export function Experience({
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
-  // 點碟片之後的整段「放片」流程：
-  //   1. 立刻關掉選片畫面（其他碟片退場、盒蓋跟著關）、打開 DVD player
-  //      的 tray，選中的碟片同時飛向 tray（DVDSelector 自己接管，見它的
-  //      insertingProjectId 那段邏輯）——三件事同時發生，不用互等。
-  //   2. 等碟片飛到、tray 也開好之後，多停頓一下（DVD_INSERT_SETTLE_
-  //      PAUSE，讓使用者看得出「碟片到位了」），才關 tray。
+  // 點光碟之後的整段「放片」流程：
+  //   1. 立刻關掉盒子特寫視角（鏡頭退回螢幕正面、盒蓋跟著關）、打開 DVD
+  //      player 的 tray，光碟同時飛向 tray（DVDSelector 自己接管）——
+  //      三件事同時發生，不用互等。
+  //   2. 等光碟飛到、tray 也開好之後，多停頓一下（DVD_INSERT_SETTLE_
+  //      PAUSE，讓使用者看得出「光碟到位了」），才關 tray。
   //   3. 關 tray 的同時就呼叫 onDiscLoaded 通知 MainScene「player 裡放的
-  //      是這個作品了」——不再像螢幕會自動切換內容的舊設計那樣，故意等
-  //      tray 完全關完才通知（那是以前「放完片螢幕立刻顯示作品」的時機
-  //      設計，現在放片完成後螢幕仍顯示履歷，不需要等）。這裡故意跟
-  //      setInsertingProjectId(null) 同一個 tick 呼叫，是因為 DVDSelector
-  //      那邊要靠 loadedProjectId 這個 prop 判斷「這片碟片已經放好了，
-  //      不要縮小隱藏」——如果 onDiscLoaded 延後於 insertingProjectId
-  //      清空，會有一段時間兩個條件都不成立，讓碟片被誤判成「沒人要」而
-  //      縮小消失，事後手動點開 tray 會看到裡面是空的（實測發現的真正
-  //      bug，不是單純的時機美觀問題）。
-  const handleSelectProject = (project: Project) => {
-    // 正常操作下選片畫面收起來的當下碟片就不能再點了，不會重複觸發；
-    // 這個保護主要是防呆（例如同一顆碟片的點擊事件在畫面更新前重複觸發
-    // 兩次），避免兩段放片流程的計時器疊在一起互搶 isDvdPlayerOpen/
-    // insertingProjectId 的狀態。
-    if (insertingProjectId) return
+  //      是這個作品了」——螢幕仍顯示履歷，不會自動切換內容，要等使用者
+  //      另外按播放鍵。這裡故意跟 setIsInserting(false) 同一個 tick 呼叫，
+  //      是因為 DVDSelector 那邊要靠 hasDisc 這個 prop 判斷「已經放好了」
+  //      ——如果 onDiscLoaded 延後於 isInserting 清空，會有一段時間兩個
+  //      條件都不成立，讓光碟被誤判成「沒人要」而縮小隱藏，事後手動點開
+  //      tray 會看到裡面是空的（上一輪重構前實測到的真正 bug，不是單純
+  //      的時機美觀問題，這次沿用同一個修法）。
+  const handleSelectProject = () => {
+    // 正常操作下盒子特寫視角收起來的當下光碟就不能再點了，不會重複觸發；
+    // 這個保護主要是防呆（例如點擊事件在畫面更新前重複觸發兩次），避免
+    // 兩段放片流程的計時器疊在一起互搶 isDvdPlayerOpen/isInserting 的
+    // 狀態。
+    if (isInserting) return
     setIsDvdSelectorOpen(false)
-    setInsertingProjectId(project.id)
+    setIsInserting(true)
     setIsDvdPlayerOpen(true)
 
-    // 碟片那邊現在是「等其他片先退場 -> 縮小 -> 邊飛邊翻正 -> 放下」四段
-    // （見 DVDSelector 的說明），要等全部播完才算「碟片到位」，不能只算
-    // 飛行那一段，不然 tray 會在碟片動畫還沒播完就關起來。
-    const discInsertDuration =
-      DVD_SELECTOR_RETRACT_DURATION + DVD_INSERT_SHRINK_DURATION + DVD_INSERT_FLY_DURATION + DVD_INSERT_DROP_DURATION
+    // 光碟那邊現在是「邊飛邊翻正、越過 TV 上方 -> 垂直降下 -> 放下」三段
+    // （見 DVDSelector 的說明），要等全部播完才算「光碟到位」，不能只算
+    // 飛行那一段，不然 tray 會在動畫還沒播完就關起來。
+    const discInsertDuration = DVD_INSERT_FLY_DURATION + DVD_INSERT_DESCEND_DURATION + DVD_INSERT_DROP_DURATION
     const settleDelay = Math.max(discInsertDuration, DVD_TRAY_ANIM_DURATION) + DVD_INSERT_SETTLE_PAUSE
     const closeTrayTimer = gsap.delayedCall(settleDelay, () => {
       setIsDvdPlayerOpen(false)
-      setInsertingProjectId(null)
-      onDiscLoaded(project)
+      setIsInserting(false)
+      onDiscLoaded(PROJECTS[0])
     })
     insertTimersRef.current.push(closeTrayTimer)
   }
@@ -469,13 +477,13 @@ export function Experience({
           的原因——不是材質問題，見上面 ACCENT_LIGHT_BASE_INTENSITY 的說明。） */}
       <pointLight ref={accentLightRef} position={[-0.6, 0.5, -0.4]} intensity={ACCENT_LIGHT_BASE_INTENSITY} color="#5aa9e6" />
 
-      {/* 選片專用燈——平常是 0，選片畫面開啟時才亮起來，讓其他光源暗下去
-          後，飛到鏡頭前的碟片還是看得清楚。故意不在這裡寫死 position——
-          交給上面的 effect 在每次開盒當下用「鏡頭位置」現算，讓這顆燈跟著
-          鏡頭走（理由見那段 effect 的註解）。如果在這裡也寫一個固定
-          position，React 每次重渲染都會把 effect 現算的位置蓋回這個固定
-          值，等於白算。 */}
-      <pointLight ref={selectorLightRef} intensity={0} color="#e8e8d0" />
+      {/* 選片專用燈——平常是 0，開盒特寫時才亮起來，讓其他光源暗下去後，
+          躺在盒子裡的光碟還是看得清楚。位置是固定的（在盒子特寫鏡頭的
+          位置跟目標點之間、稍微偏上方一點，等於幫這顆固定鏡頭姿態擺一顆
+          固定的補光），不用像舊版「碟片飛到鏡頭前」那樣每次開盒都現算
+          跟著鏡頭走的位置——現在鏡頭姿態本身就是固定常數，光碟位置也是
+          固定常數，兩邊天生對得上。 */}
+      <pointLight ref={selectorLightRef} position={[0.05, 1.0, 0.15]} intensity={0} color="#e8e8d0" />
 
       <DVDPlayer
         isOpen={isDvdPlayerOpen}
@@ -483,7 +491,7 @@ export function Experience({
           // 放片流程進行中、或螢幕運鏡不在 idle 階段時，都不給使用者手動
           // 開闔 tray——理由跟下面 DVDCase 的 onToggle 一樣，避免使用者
           // 亂點打斷正在跑的動畫序列，或跟運鏡動畫互搶 camera 狀態。
-          if (phase !== 'idle' || insertingProjectId) return
+          if (phase !== 'idle' || isInserting) return
           setIsDvdPlayerOpen((v) => !v)
         }}
         onTrayReady={(tray) => { trayObjectRef.current = tray }}
@@ -494,7 +502,7 @@ export function Experience({
           // 都不給按，避免播放狀態跟正在跑的動畫序列互相打架。有沒有片
           // 可以按（hasDisc）交給 MainScene 的 handlePlayPauseToggle 判斷，
           // 這裡不重複檢查。
-          if (phase !== 'idle' || insertingProjectId) return
+          if (phase !== 'idle' || isInserting) return
           onPlayPauseToggle()
         }}
       />
@@ -513,18 +521,18 @@ export function Experience({
       <DVDCase
         isOpen={isDvdSelectorOpen}
         onToggle={() => {
-          // 螢幕流程不在 idle 階段、或放片流程正在跑的時候都不給開盒——
-          // 前者避免兩套各自控制鏡頭的動畫互搶 camera.position/
-          // controls.target，後者避免使用者在碟片飛向 player 的途中又
-          // 手動開盒，讓選片畫面的開/收邏輯跟放片流程的收尾互相打架。
-          if (phase !== 'idle' || insertingProjectId) return
+          // 螢幕流程不在 idle 階段、放片流程正在跑、或已經放過片時都不給
+          // 開盒——前兩個理由跟原本一樣（避免鏡頭/狀態互搶），最後一個是
+          // 新的：場景只留一片光碟、沒有退片機制，放進去之後盒子再打開
+          // 也是空的，直接不給開。
+          if (phase !== 'idle' || isInserting || hasDisc) return
           setIsDvdSelectorOpen((v) => !v)
         }}
       />
       <DVDSelector
-        isOpen={discsReady}
-        insertingProjectId={insertingProjectId}
-        loadedProjectId={loadedProjectId}
+        isOpen={isDvdSelectorOpen}
+        isInserting={isInserting}
+        hasDisc={hasDisc}
         trayRef={trayObjectRef}
         onSelect={handleSelectProject}
         onClose={() => setIsDvdSelectorOpen(false)}

@@ -24,65 +24,45 @@ export const KNOB_STEP_DURATION = 0.35 // 秒，每按一次的轉動動畫時�
 export const DVD_CASE_OPEN_ANGLE = 1.9
 export const DVD_CASE_OPEN_DURATION = 0.5 // 秒
 
-// 選片畫面：碟片飛到鏡頭前方排成一列，場景其他光源同時暗下去。
-export const DVD_SELECTOR_DISTANCE = 1 // 碟片扇形排列的中心離鏡頭多遠
-export const DVD_SELECTOR_ARC_SPACING = 0.45 // 每片碟沿鏡頭「右方向」展開的間距
-export const DVD_SELECTOR_SCALE = 2 // 飛到選片位置後放大幾倍，原尺寸在這個距離下太小看不清楚
-export const DVD_SELECTOR_FLY_DURATION = 0.6 // 秒，飛出/收回的動畫時間
-// 沒被選中的碟片收起來（原地縮小消失）的時間——比飛出來短，退場俐落一點。
-// 選片後這個常數還有第二個用途：被選中那一片要等其他兩片先縮小完、徹底
-// 消失之後才開始自己的放片動畫（見 DVDSelector.tsx 的 insertingProjectId
-// 分支）。原本兩邊是同時開始的，被選中的那片還沒開始移動、尺寸也還沒縮小
-// 完，跟旁邊還沒完全消失的另外兩片距離太近（DVD_SELECTOR_ARC_SPACING
-// 只有 0.45，放大到 DVD_SELECTOR_SCALE 倍的碟片彼此靠得很近），畫面上
-// 看起來像選中的那片突然變大蓋到旁邊——實際上是三片一起還很大、還沒
-// 分開的錯覺。改成先後順序，旁邊兩片完全消失之後，畫面清空了，被選中的
-// 那片才開始動，就不會有互相重疊的錯覺。
-export const DVD_SELECTOR_RETRACT_DURATION = DVD_SELECTOR_FLY_DURATION * 0.6 // 秒
+// 選片畫面：鏡頭運鏡貼近盒子特寫，場景其他光源同時暗下去。
 export const SCENE_DIM_FACTOR = 0.15 // 選片時場景燈光乘上這個係數（趨近全黑但留一點層次）
 export const SCENE_DIM_DURATION = 0.4 // 秒，燈光暗下/恢復的時間
 
-// 選片開啟時鏡頭要拉遠到的安全距離（離 CAMERA_TARGET 多遠）——碟片扇形
-// 排列的位置是算「鏡頭前方 DVD_SELECTOR_DISTANCE 處」，使用者如果開盒前
-// 剛好把鏡頭拉得比這個距離還近（OrbitControls 允許近到 ORBIT_MIN_DISTANCE
-// =0.6），碟片會直接卡在 TV 機身裡面、穿模。這個距離抓在預設鏡頭位置
-// （CAMERA_POSITION 離 CAMERA_TARGET 約 2.04）附近再留一點餘裕，只有目前
-// 距離比這個近的時候才會往外拉，鏡頭已經比較遠的話不動它。
-export const DVD_SELECTOR_CAMERA_DISTANCE = 2.2
-export const DVD_SELECTOR_CAMERA_DOLLY_DURATION = 0.5 // 秒
+// 開盒時鏡頭運鏡到盒子特寫姿態的時間——跟 screen.ts 的 CAMERA_FOCUS_
+// DURATION 同一種「同時補間 position/target/fov」手法，見 Experience.tsx
+// 對應的 effect、CAMERA_CASE_POSITION/TARGET/FOV（scene.ts）。
+export const DVD_CASE_VIEW_DURATION = 0.6 // 秒
 
-// 選片畫面裡碟片的閒置自轉——hover 時停下來、轉正對鏡頭。
-export const DVD_SELECTOR_SPIN_SPEED_X = 0.4 // 弧度/秒
-export const DVD_SELECTOR_SPIN_SPEED_Y = 0.6 // 弧度/秒
-export const DVD_SELECTOR_HOVER_SNAP_DURATION = 0.25 // 秒，hover 時轉正對鏡頭的時間
-
-// 選片後把選中的碟片「放進」DVD player 的整段流程：點碟片 -> player 開
-// （跟其他碟片收起來同時發生）-> 選中的碟片縮小/邊飛邊翻正/放進槽裡
-// （分三段，見下面三個 DURATION 常數）-> 停頓一下（讓畫面上看得出「碟片
-// 已經在 player 裡了」）-> player 關 -> 螢幕顯示內容。
+// 選片後把光碟「放進」DVD player 的整段流程：點光碟 -> player 開 ->
+// 光碟邊飛邊翻正、越過 TV 上方、垂直降下、放進槽裡（分三段，見下面三個
+// DURATION 常數）-> 停頓一下（讓畫面上看得出「光碟已經在 player 裡了」）
+// -> player 關 -> 螢幕顯示內容。
 //
-// 第一版是單純的 position/scale 直線 tween，角度完全不變——碟片全程維持
-// 選片時「面向鏡頭」的朝向飛過去，看起來像整片貼圖平移過去，不像真的
-// 被拿起來放進機器裡。改成三段式：
-//   1. 原地縮小（DVD_INSERT_SHRINK_DURATION）：先從選片放大尺寸縮回接近
-//      原始大小，感覺像「先把碟片捏小準備收好」，這時候還沒開始移動。
-//   2. 邊飛邊翻正（DVD_INSERT_FLY_DURATION）：位置飛向 tray 正上方（留
-//      DVD_INSERT_HOVER_HEIGHT 的高度差，不是一次到底），同時角度從
-//      「面向鏡頭」翻成「躺平、正面朝上」——跟真的拿一片光碟放進托盤是
-//      同一個動作次序。
+// 原本選片畫面會把光碟放大 2 倍方便使用者看清楚，插入動畫因此要先有一段
+// 「縮小」把尺寸縮回原始大小。現在光碟改成直接躺在盒子裡（原始尺寸、
+// 沒有放大），不需要縮小這一段，直接從三段開始：
+//   1. 邊飛邊翻正（DVD_INSERT_FLY_DURATION）：位置從盒子裡的靜置位置飛向
+//      DVD_INSERT_CLEAR_POSITION（scene.ts）——tray 正上方、但維持在 TV
+//      頂面以上的高度，不是直接飛向 tray 本身。同時角度從「盒子裡的
+//      姿態」翻成「躺平、正面朝上」——跟真的拿一片光碟放進托盤是同一個
+//      動作次序。原本這裡直接飛向 tray 正上方，會讓光碟在半路直接穿過
+//      TV 機身（盒子在 TV 頂上、tray 在 TV 前方貼地處，兩點直線中間會
+//      切過機身體積，使用者實測回報「移動過程中會穿過 TV」）——先飛到
+//      這個「維持高度」的中繼點，水平位置對齊之後才降下，就不會有任何
+//      一段路徑跟機身重疊。
+//   2. 垂直降下（DVD_INSERT_DESCEND_DURATION）：從 DVD_INSERT_CLEAR_
+//      POSITION 純粹往下降到 tray 正上方（留 DVD_INSERT_HOVER_HEIGHT
+//      的高度差，不是一次到底，留給第3段做「放下」），x/z 這段不變。
 //   3. 放下（DVD_INSERT_DROP_DURATION）：從 tray 正上方做最後一小段下降
 //      到精確的插槽位置，模擬「放下」而不是整段飛行一次到位。
-export const DVD_INSERT_SHRINK_DURATION = 0.25 // 秒
-export const DVD_INSERT_FLY_DURATION = 0.6 // 秒，邊飛邊翻正的時間
+export const DVD_INSERT_FLY_DURATION = 0.6 // 秒，邊飛邊翻正、越過 TV 上方的時間
+export const DVD_INSERT_DESCEND_DURATION = 0.3 // 秒，從 TV 上方垂直降到 tray 正上方的時間
 export const DVD_INSERT_DROP_DURATION = 0.2 // 秒
-// 邊飛邊翻正的終點比最終插槽位置高多少（公尺）——留給第3段「放下」用，
+// 邊飛邊翻正的終點比最終插槽位置高多少（公尺）——留給第2段「放下」用，
 // 不然整段飛行只剩翻正、沒有「放下」的動作可以做。
 export const DVD_INSERT_HOVER_HEIGHT = 0.04
-// 碟片在選片畫面被放大到 DVD_SELECTOR_SCALE(2倍)方便看清楚，飛進 player
-// 時縮小回接近原始尺寸——真的放進去的碟片不該還維持選片時的誇張尺寸。
-export const DVD_INSERT_SCALE_END = 1
-// 碟片/tray 都到定位之後，多停頓一下再關 tray，讓使用者看得出「碟片已經
-// 放進去了」，不是碟片一到位 tray 馬上關、動作黏在一起分不清楚。
+// 光碟/tray 都到定位之後，多停頓一下再關 tray，讓使用者看得出「光碟已經
+// 放進去了」，不是光碟一到位 tray 馬上關、動作黏在一起分不清楚。
 export const DVD_INSERT_SETTLE_PAUSE = 0.2 // 秒
 
 // player 上 LED 燈號「已就緒」狀態的呼吸動畫一個週期要多久——光碟放進去
