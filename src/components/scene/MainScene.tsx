@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { Experience } from './Experience'
 import { IntroOverlay } from '@/components/ui/IntroOverlay'
 import { FullscreenOverlay } from '@/components/ui/FullscreenOverlay'
+import { PlayHintOverlay } from '@/components/ui/PlayHintOverlay'
 import { CAMERA_FOV, CAMERA_POSITION } from '@/cores/const/scene'
 import { CHANNEL_SWITCH_LOADING_DURATION } from '@/cores/const/screen'
 import { RESUME_PAGES, projectToScreenPage } from '@/data/screenPages'
@@ -135,6 +136,15 @@ export function MainScene() {
           onClose={() => setPhase('zooming-out')}
         />
       )}
+
+      {/* 放片後的播放鍵提示——只在 idle（一般瀏覽構圖、player 按鈕看得到）
+          且已經放片時顯示，不判斷開盒/盒子特寫（那個階段 insertedProject
+          必定還是 null，見 DVDCase.tsx 的 hasDisc 鎖）。文字內容依
+          isPlaying 切換，見 PlayHintOverlay.tsx。 */}
+      <PlayHintOverlay
+        visible={phase === 'idle' && insertedProject !== null}
+        isPlaying={isPlaying}
+      />
     </div>
   )
 }

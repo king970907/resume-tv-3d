@@ -32,10 +32,16 @@ const TRAY_SLIDE_AXIS = 'z' as const
 // 組色票），不額外生新色票。
 const LED_OFF_COLOR = '#33241a'
 const LED_OFF_INTENSITY = 0
+// LED_READY_INTENSITY/LED_PLAYING_INTENSITY 原本是 1.2/1.4——
+// emissiveIntensity 超過 1 會把顏色高峰推到過曝，疊加場景 tone mapping
+// 之後整片按鈕洗成一片沒有邊界的白/淡色色塊（尤其飽和度已經很高的
+// #39ff14 播放中綠色最明顯，瀏覽器實測過就是使用者截圖回報的「過曝黃
+// 綠色一坨」那個樣子，連兩顆按鈕的分界都看不出來）。兩個都降到 1 以下
+// ，瀏覽器截圖比對過，兩種狀態都看得出柔和發光、按鈕分界清楚，不再洗白。
 const LED_READY_COLOR = '#ffb066'
-const LED_READY_INTENSITY = 1.2
+const LED_READY_INTENSITY = 0.6
 const LED_PLAYING_COLOR = '#39ff14'
-const LED_PLAYING_INTENSITY = 1.4
+const LED_PLAYING_INTENSITY = 0.7
 
 interface DVDPlayerProps {
   // 受控元件——跟 DVDCase 同一套設計：開闔狀態交給 Experience.tsx 統一

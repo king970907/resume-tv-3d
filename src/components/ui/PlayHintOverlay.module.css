@@ -1,0 +1,31 @@
+.overlay {
+  position: fixed;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%) translateY(8px);
+  /* 永遠不攔截點擊——這只是個提示文字，底下的 3D 場景/按鈕要維持可點。 */
+  pointer-events: none;
+  opacity: 0;
+  transition-property: opacity, transform;
+  transition-duration: 0.35s;
+  transition-timing-function: ease-out;
+}
+
+.overlay[data-visible] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.hint {
+  margin: 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f2f2ea;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
