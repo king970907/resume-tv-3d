@@ -1,0 +1,11 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(16, 8px);
+  grid-template-rows: repeat(16, 8px);
+  flex-shrink: 0;
+}
+
+.cell {
+  width: 8px;
+  height: 8px;
+}

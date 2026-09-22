@@ -1,0 +1,156 @@
+.frame {
+  /* 跟 3D 場景裡那塊 CRT 螢幕貼圖同一個長寬比（512x458，見 screenCanvas.ts
+     的 SCREEN_CANVAS_WIDTH/HEIGHT）——全螢幕疊層構圖上刻意呼應小螢幕，
+     不是隨便挑一個比例。92vh 那個係數是「92vh 換算成同比例寬度上限」，
+     算好的小數（512/458），跟 min(92vw, ...) 一起保證永遠不會超出視窗。 */
+  width: min(1120px, 92vw, calc(92vh * 1.1179));
+  aspect-ratio: 512 / 458;
+  box-sizing: border-box;
+  background: #050505;
+  color: #eef0e6;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background-image: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 0px, rgba(255, 255, 255, 0.05) 1px, transparent 1px, transparent 3px);
+  opacity: 0.5;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow: inset 0 0 9vh rgba(0, 0, 0, 0.85);
+}
+
+.systemRow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2.4% 4.4% 1.4%;
+}
+
+.systemLabel {
+  font-family: var(--font-retro);
+  font-size: clamp(14px, 2.2vw, 20px);
+  color: #6f7266;
+  letter-spacing: 1px;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.soulBadge {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+}
+
+.badge span {
+  font-family: var(--font-pixel);
+  font-size: clamp(11px, 1.5vw, 14px);
+  color: #eef0e6;
+}
+
+.box {
+  flex-grow: 1;
+  margin: 0.6% 4.4% 2%;
+  position: relative;
+}
+
+.boxBorder,
+.boxFill {
+  position: absolute;
+  inset: 0;
+}
+
+.boxBorder {
+  background: #eef0e6;
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px);
+}
+
+.boxFill {
+  inset: 5px;
+  background: #050505;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+
+.boxContent {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 4.4% 4.8%;
+  overflow: auto;
+}
+
+.continueHint {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hintIcon {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+
+.tri {
+  font-size: clamp(14px, 1.8vw, 20px);
+  animation: blink 1.2s steps(1) infinite;
+}
+
+.navRow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4.4% 2.6%;
+}
+
+.navButton {
+  font-family: var(--font-pixel);
+  font-size: clamp(10px, 1.4vw, 13px);
+  color: #eef0e6;
+  background: transparent;
+  border: 3px solid #eef0e6;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.navButton:hover {
+  background: #eef0e6;
+  color: #050505;
+}
+
+.navPrompt {
+  font-family: var(--font-retro);
+  font-size: clamp(14px, 2vw, 22px);
+  color: #565a4f;
+}
+
+.cursor {
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}

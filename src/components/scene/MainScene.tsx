@@ -134,6 +134,8 @@ export function MainScene() {
           page={currentPage}
           fadingOut={phase === 'zooming-out'}
           onClose={() => setPhase('zooming-out')}
+          resumePageIndex={isPlaying ? null : resumePageIndex}
+          onResumeChannelChange={handleResumeChannelChange}
         />
       )}
 

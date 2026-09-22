@@ -1,6 +1,11 @@
 import { useEffect } from 'react'
 import { FULLSCREEN_OVERLAY_FADE_DURATION } from '@/cores/const/screen'
+import { RESUME_PAGES } from '@/data/screenPages'
 import type { ScreenPage } from '@/data/screenPages'
+import { ResumeFrame } from '@/components/ui/resume/ResumeFrame'
+import { ResumeIntroPage } from '@/components/ui/resume/ResumeIntroPage'
+import { ResumeSkillsPage } from '@/components/ui/resume/ResumeSkillsPage'
+import { ResumeExperiencePage } from '@/components/ui/resume/ResumeExperiencePage'
 import styles from './FullscreenOverlay.module.css'
 
 interface FullscreenOverlayProps {
@@ -10,6 +15,12 @@ interface FullscreenOverlayProps {
   // 的 fadingOut 一樣。
   fadingOut: boolean
   onClose: () => void
+  // 現在顯示的是不是履歷頁、第幾頁——不是 null 時代表這是履歷（不是播放中
+  // 的作品集），改用 ResumeFrame 那套 Undertale 風格畫面；null 時維持原本
+  // 通用的 title/subtitle 版面（作品集播放頁目前還沒有另外設計過，先共用
+  // 這套簡單版面）。由 MainScene 依 isPlaying 算出來傳進來。
+  resumePageIndex: number | null
+  onResumeChannelChange: (index: number) => void
 }
 
 // 點擊螢幕、鏡頭運鏡貼近後切換成的真 2D 疊層——蓋滿整個瀏覽器視窗，內容
@@ -20,7 +31,7 @@ interface FullscreenOverlayProps {
 // ——原本試過在登場時額外疊一層 gsap 閃爍當「訊號鎖定」的收尾效果，使用
 // 者反應閃爍感太強、不舒服，拿掉了。zoom-loading 階段的雜訊已經足夠
 // 表達「訊號切換」，這層疊層不需要再自己閃一次。
-export function FullscreenOverlay({ page, fadingOut, onClose }: FullscreenOverlayProps) {
+export function FullscreenOverlay({ page, fadingOut, onClose, resumePageIndex, onResumeChannelChange }: FullscreenOverlayProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -28,6 +39,9 @@ export function FullscreenOverlay({ page, fadingOut, onClose }: FullscreenOverla
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
+
+  const isResumePage = resumePageIndex !== null
+  const channelCount = RESUME_PAGES.length
 
   return (
     <div
@@ -44,14 +58,40 @@ export function FullscreenOverlay({ page, fadingOut, onClose }: FullscreenOverla
         background: '#07080a',
       }}
     >
-      <button type="button" className={styles.closeButton} onClick={onClose} aria-label="關閉全螢幕">
-        ✕
-      </button>
+      {isResumePage ? (
+        // 履歷頁的關閉鍵改用使用者提供的 MERCY 按鈕素材——概念上「離開這
+        // 個畫面」跟 Undertale 裡「饒恕/結束戰鬥」的語意接近，比中性的 ✕
+        // 更有戲。旁邊配一個小小的 Xbox B 圖示當作「B 鍵 = 返回」的提示，
+        // 跟遊戲主機選單的慣例一致。
+        <div className={styles.mercyCloseWrap}>
+          <img src="/sprites/xbox-b.png" alt="" className={styles.xboxHint} />
+          <button type="button" className={styles.mercyButton} onClick={onClose} aria-label="關閉全螢幕">
+            <img src="/sprites/mercy-button.png" alt="MERCY" className={styles.mercyImg} />
+          </button>
+        </div>
+      ) : (
+        <button type="button" className={styles.closeButton} onClick={onClose} aria-label="關閉全螢幕">
+          ✕
+        </button>
+      )}
 
-      <div className={styles.content}>
-        <p className={styles.title} style={{ color: page.accentColor }}>{page.title}</p>
-        <p className={styles.subtitle}>{page.subtitle}</p>
-      </div>
+      {isResumePage ? (
+        <ResumeFrame
+          channel={resumePageIndex + 1}
+          channelCount={channelCount}
+          onPrevChannel={() => onResumeChannelChange((resumePageIndex + channelCount - 1) % channelCount)}
+          onNextChannel={() => onResumeChannelChange((resumePageIndex + 1) % channelCount)}
+        >
+          {resumePageIndex === 0 && <ResumeIntroPage />}
+          {resumePageIndex === 1 && <ResumeSkillsPage />}
+          {resumePageIndex === 2 && <ResumeExperiencePage />}
+        </ResumeFrame>
+      ) : (
+        <div className={styles.content}>
+          <p className={styles.title} style={{ color: page.accentColor }}>{page.title}</p>
+          <p className={styles.subtitle}>{page.subtitle}</p>
+        </div>
+      )}
     </div>
   )
 }

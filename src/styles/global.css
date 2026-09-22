@@ -1,3 +1,14 @@
+/* Pixelify Sans——履歷全螢幕頁面的像素卡通風標題字體，使用者提供的
+   OFL 授權字型檔（public/fonts/，附授權文字 PixelifySans-OFL.txt），
+   自己 host 不吃 Google Fonts，是可變字重字型（400~700）一份檔案就夠。 */
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('/fonts/PixelifySans-VariableFont.ttf') format('truetype-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ── Design Tokens ── */
 :root {
   --color-bg: #0a0a0a;
@@ -12,6 +23,7 @@
 
   --font-retro: 'VT323', 'Courier New', monospace;
   --font-body: 'Space Mono', 'Courier New', monospace;
+  --font-pixel: 'Pixelify Sans', 'Courier New', monospace;
 
   --z-scene: 1;
   --z-overlay: 10;
