@@ -2,8 +2,10 @@
 // three.js/React。CanvasTexture 需要的是「畫完之後 texture.needsUpdate =
 // true」，呼叫端（RetroTV.tsx）負責建立 canvas/texture 跟排程重繪的時機
 // （例如雜訊要用 useFrame 節流重畫，內容頁只需要換頁時畫一次）。
+import { RESUME_PAGES } from '@/data/screenPages'
 import type { ScreenPage } from '@/data/screenPages'
 import { RESUME_INTRO, RESUME_JOBS, RESUME_SKILLS } from '@/data/resumeContent'
+import { PROJECTS } from '@/data/projects'
 
 // 螢幕實體尺寸（TV_Screen_Glass 的世界座標寬高，見 blender-project/models/
 // tv/notes.md 量出來的 0.329 x 0.294624m）——貼圖解析度照同一個比例抓，
@@ -101,6 +103,14 @@ function resumePageIndexFromId(id: string): number | null {
   return Number(match[1]) - 1
 }
 
+// 作品頁（project-1/2/3）的 id 對應第幾頁（0-based）——理由跟
+// resumePageIndexFromId 一樣，見上面的說明。
+function projectPageIndexFromId(id: string): number | null {
+  const match = /^project-(\d)$/.exec(id)
+  if (!match) return null
+  return Number(match[1]) - 1
+}
+
 // 缺角矩形路徑——履歷頁 Undertale 風格對話框的邊框形狀，跟全螢幕疊層
 // （TerminalFrame.module.css）用 CSS clip-path 疊兩層做的是同一個形狀，
 // 這裡在 canvas 2D 用路徑點手畫，兩邊維持同一套視覺語言。
@@ -117,10 +127,17 @@ function pathNotchedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w:
   ctx.closePath()
 }
 
-// 履歷頁共用的外殼——頂部系統列（SYS://RESUME.EXE + Blue SOUL 頻道徽章）+
-// 缺角對話框，跟全螢幕疊層的 TerminalFrame 是同一套視覺，只是縮到小螢幕的
-// 解析度。回傳缺角對話框內部可用的內容區域，讓各頁畫自己的內容。
-function drawResumeChrome(ctx: CanvasRenderingContext2D, resumeIndex: number): { x: number; y: number; w: number; h: number } {
+// 履歷/作品頁共用的外殼——頂部系統列（SYS://...EXE + Blue SOUL 頻道徽章）
+// + 缺角對話框，跟全螢幕疊層的 TerminalFrame 是同一套視覺（systemLabel/
+// channelLabel 兩個參數對應 TerminalFrame 的同名 prop），只是縮到小螢幕
+// 的解析度。回傳缺角對話框內部可用的內容區域，讓各頁畫自己的內容。
+function drawTerminalChrome(
+  ctx: CanvasRenderingContext2D,
+  systemLabel: string,
+  channelLabel: string,
+  channel: number,
+  channelCount: number,
+): { x: number; y: number; w: number; h: number } {
   const w = SCREEN_CANVAS_WIDTH
   const h = SCREEN_CANVAS_HEIGHT
   const marginX = w * SAFE_MARGIN_RATIO
@@ -143,9 +160,9 @@ function drawResumeChrome(ctx: CanvasRenderingContext2D, resumeIndex: number): {
   ctx.fillStyle = '#6f7266'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  ctx.fillText('SYS://RESUME.EXE', marginX, systemY)
+  ctx.fillText(systemLabel, marginX, systemY)
 
-  const badgeText = `CH 0${resumeIndex + 1}/03`
+  const badgeText = `${channelLabel} ${String(channel).padStart(2, '0')}/${String(channelCount).padStart(2, '0')}`
   ctx.font = '11px "Pixelify Sans", "Unifont-T", monospace'
   ctx.textAlign = 'right'
   ctx.fillStyle = '#eef0e6'
@@ -267,17 +284,83 @@ function drawResumeExperience(ctx: CanvasRenderingContext2D, area: { x: number; 
   ctx.fillText('▼ 點擊螢幕查看完整經歷', area.x, area.y + area.h - 6)
 }
 
-// 內容頁——履歷三頁（resume-1/2/3）用 Undertale 風格的缺角對話框，其餘
-// 頁面（DVD 選片放出來的作品內容）維持原本「純色塊背景 + 置中標題/副標」
-// 的通用版面，這次只重新設計履歷頁，作品集頁還沒有另外討論過要不要跟進
-// 同一套風格，先不動。
+// 畫一顆技術標籤（像素邊框小方塊），回傳畫完之後往右要留的寬度，讓呼叫端
+// 排下一顆標籤的 x 座標——跟全螢幕版 ProjectPage.module.css 的 .tag 是
+// 同一個視覺，這裡用 strokeRect 手畫邊框。
+function drawTechTag(ctx: CanvasRenderingContext2D, x: number, y: number, text: string): number {
+  ctx.font = '10px "Pixelify Sans", "Unifont-T", monospace'
+  const textWidth = ctx.measureText(text).width
+  const padX = 8
+  const tagH = 18
+  const tagW = textWidth + padX * 2
+  ctx.strokeStyle = '#eef0e6'
+  ctx.lineWidth = 2
+  ctx.strokeRect(x, y, tagW, tagH)
+  ctx.fillStyle = '#eef0e6'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, x + padX, y + tagH / 2 + 1)
+  return tagW
+}
+
+// DVD 0X——作品頁，縮到小螢幕的濃縮版：標題 + 技術標籤，不放縮圖/完整
+// 簡介（那個留給全螢幕頁），理由跟履歷頁的三個 drawResume* 函式一樣，
+// 小螢幕的作用是「頻道預覽」不是「完整內容」。
+function drawProjectMini(ctx: CanvasRenderingContext2D, area: { x: number; y: number; w: number; h: number }, project: (typeof PROJECTS)[number]): void {
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+
+  ctx.font = '13px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#9a9d90'
+  ctx.fillText('> cat project.txt', area.x, area.y + 14)
+
+  const soulSize = 18
+  if (soulRedImage.complete) {
+    ctx.drawImage(soulRedImage, area.x, area.y + 30, soulSize, soulSize)
+  }
+  ctx.font = 'bold 22px "Pixelify Sans", "Unifont-T", monospace'
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(project.title.toUpperCase(), area.x + soulSize + 10, area.y + 46)
+
+  // 技術標籤——超出安全區寬度就換行，避免標籤數量一多直接畫出螢幕外。
+  let tagX = area.x
+  let tagY = area.y + 72
+  const tagGap = 8
+  const rowH = 28
+  project.tech.forEach((tech) => {
+    const tagW = ctx.measureText(tech.toUpperCase()).width + 16
+    if (tagX + tagW > area.x + area.w) {
+      tagX = area.x
+      tagY += rowH
+    }
+    const drawnWidth = drawTechTag(ctx, tagX, tagY, tech.toUpperCase())
+    tagX += drawnWidth + tagGap
+  })
+
+  ctx.textAlign = 'left'
+  ctx.font = '12px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#6f7266'
+  ctx.fillText('▼ 點擊螢幕查看完整內容', area.x, area.y + area.h - 6)
+}
+
+// 內容頁——履歷三頁（resume-1/2/3）、作品三頁（project-1/2/3）都用
+// Undertale 風格的缺角對話框（drawTerminalChrome），其餘頁面（目前沒有
+// 其他來源，保留當防呆 fallback）維持原本「純色塊背景 + 置中標題/副標」
+// 的通用版面。
 export function drawPage(ctx: CanvasRenderingContext2D, page: ScreenPage): void {
   const resumeIndex = resumePageIndexFromId(page.id)
   if (resumeIndex !== null) {
-    const area = drawResumeChrome(ctx, resumeIndex)
+    const area = drawTerminalChrome(ctx, 'SYS://RESUME.EXE', 'CH', resumeIndex + 1, RESUME_PAGES.length)
     if (resumeIndex === 0) drawResumeIntro(ctx, area)
     else if (resumeIndex === 1) drawResumeSkills(ctx, area)
     else drawResumeExperience(ctx, area)
+    return
+  }
+
+  const projectIndex = projectPageIndexFromId(page.id)
+  if (projectIndex !== null) {
+    const area = drawTerminalChrome(ctx, 'SYS://PROJECTS.EXE', 'DVD', projectIndex + 1, PROJECTS.length)
+    drawProjectMini(ctx, area, PROJECTS[projectIndex])
     return
   }
 
