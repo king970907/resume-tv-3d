@@ -11,7 +11,7 @@ import { RESUME_INTRO, RESUME_JOBS, RESUME_SKILLS } from '@/data/resumeContent'
 export const SCREEN_CANVAS_WIDTH = 512
 export const SCREEN_CANVAS_HEIGHT = Math.round(SCREEN_CANVAS_WIDTH * (0.294624 / 0.329))
 
-// 履歷頁在小螢幕上用的 SOUL 圖示——跟全螢幕疊層（ResumeFrame/Resume*Page）
+// 履歷頁在小螢幕上用的 SOUL 圖示——跟全螢幕疊層（TerminalFrame/Resume*Page）
 // 用的是同一組使用者提供的素材，這裡另外 new Image() 預先載入一份，是因為
 // canvas 2D 的 drawImage 沒辦法像 <img> 那樣等瀏覽器自動處理載入時機，得
 // 自己追蹤「圖片載到好了沒」。字型也一樣——canvas 文字不會像 DOM 那樣在
@@ -102,7 +102,7 @@ function resumePageIndexFromId(id: string): number | null {
 }
 
 // 缺角矩形路徑——履歷頁 Undertale 風格對話框的邊框形狀，跟全螢幕疊層
-// （ResumeFrame.module.css）用 CSS clip-path 疊兩層做的是同一個形狀，
+// （TerminalFrame.module.css）用 CSS clip-path 疊兩層做的是同一個形狀，
 // 這裡在 canvas 2D 用路徑點手畫，兩邊維持同一套視覺語言。
 function pathNotchedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, notch: number): void {
   ctx.beginPath()
@@ -118,7 +118,7 @@ function pathNotchedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w:
 }
 
 // 履歷頁共用的外殼——頂部系統列（SYS://RESUME.EXE + Blue SOUL 頻道徽章）+
-// 缺角對話框，跟全螢幕疊層的 ResumeFrame 是同一套視覺，只是縮到小螢幕的
+// 缺角對話框，跟全螢幕疊層的 TerminalFrame 是同一套視覺，只是縮到小螢幕的
 // 解析度。回傳缺角對話框內部可用的內容區域，讓各頁畫自己的內容。
 function drawResumeChrome(ctx: CanvasRenderingContext2D, resumeIndex: number): { x: number; y: number; w: number; h: number } {
   const w = SCREEN_CANVAS_WIDTH

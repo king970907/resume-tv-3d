@@ -2,7 +2,7 @@ import { RESUME_INTRO } from '@/data/resumeContent'
 import { PixelAvatar } from './PixelAvatar'
 import styles from './ResumeIntroPage.module.css'
 
-// CH 01——個人簡介。放在 ResumeFrame 的缺角對話框裡（見 ResumeFrame.tsx）。
+// CH 01——個人簡介。放在 TerminalFrame 的缺角對話框裡（見 TerminalFrame.tsx）。
 export function ResumeIntroPage() {
   return (
     <div className={styles.layout}>

@@ -131,11 +131,12 @@ export function MainScene() {
 
       {(phase === 'fullscreen' || phase === 'zooming-out') && (
         <FullscreenOverlay
-          page={currentPage}
           fadingOut={phase === 'zooming-out'}
           onClose={() => setPhase('zooming-out')}
           resumePageIndex={isPlaying ? null : resumePageIndex}
           onResumeChannelChange={handleResumeChannelChange}
+          projectPageIndex={isPlaying ? projectPageIndex : null}
+          onProjectChannelChange={handleProjectChannelChange}
         />
       )}
 
