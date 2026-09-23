@@ -77,9 +77,14 @@ export const DVD_CASE_REST_POSITION: [number, number, number] = [
 // 換成 Blender 匯出的真實 case 後不用再轉 -90°——這條是舊 placeholder box
 // 專用的（那個 box 用 three.js 手刻，預設厚度軸是水平的 Z，需要轉 90° 讓
 // 厚度變垂直）。真實 Blender 模型的厚度軸（Blender Z）匯出後直接對應
-// three.js 的 Y 軸，本來就是垂直的，不用轉。剩下這個 0.4 弧度是繞 Y
-// （垂直軸）的隨性擺放角度，角度憑感覺抓，看畫面調。
-export const DVD_CASE_REST_ROTATION: [number, number, number] = [0, 0.4, 0]
+// three.js 的 Y 軸，本來就是垂直的，不用轉。0.4 弧度是繞 Y（垂直軸）的
+// 隨性擺放角度，角度憑感覺抓，看畫面調。
+//
+// 加 Math.PI（180°）是接上真的封面圖片貼圖之後才補的——沒轉這 180° 之前，
+// 從預設俯視角看封面內容是顛倒的（瀏覽器實測：把這個 group 的 rotation.y
+// 直接改成 0.4 + Math.PI，封面內容就從顛倒變成正著看），純粹只調隨性
+// 擺放角度的 0.4 不會影響這個，兩者疊加才是最終角度。
+export const DVD_CASE_REST_ROTATION: [number, number, number] = [0, 0.4 + Math.PI, 0]
 
 // 盒子裡那片可以點擊、放進 player 的光碟——靜置姿態直接用瀏覽器
 // getWorldPosition()/getWorldQuaternion() 量出來的世界座標數字（不是手算

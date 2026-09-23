@@ -1,6 +1,17 @@
 // 點擊觸發的部件動畫共用調校參數（tray、旋鈕、DVD 盒）。放同一個檔案是因為
 // 這些數字之後會互相比對、一起調——見 CLAUDE.md 的 Phase 計畫。
 
+// 「點擊」跟「拖曳失敗」的判斷門檻（CSS px，對應 R3F ThreeEvent.delta：
+// pointerdown 到 pointerup 之間移動的總距離）——使用者回報：盒子特寫視角
+// 時 OrbitControls 被鎖住（見 Experience.tsx），這時候想拖曳鏡頭「什麼都
+// 不會動」，但放開滑鼠那一刻 R3F 還是會把這次操作當成一次 click 送到滑鼠
+// 放開當下所在的物件上——如果那個物件剛好是背板（DVDSelector.tsx 的
+// handleBackdropClick），就會誤觸發「關閉選片畫面」，使用者接下來點光碟
+// 會因為畫面已經悄悄關掉而「沒反應」，要再點一次盒子才會恢復。凡是鏡頭
+// 可能被鎖住、使用者仍可能嘗試拖曳的地方，click handler 都要先擋掉這種
+// 移動量夠大的「失敗拖曳」，不能照單全收當成真的點擊。
+export const CLICK_DRAG_THRESHOLD_PX = 4
+
 // tray 沿 +Z 滑出的距離（公尺）。原本 0.14——瀏覽器量過 DVD_Tray 世界座標
 // 邊界框才發現這個值只讓 tray 平台（DVD_Tray_Base，本身縱深約 0.22m）
 // 露出機身正面約 56%，看起來像「滑開一半」，不是真的彈出來。改成 0.2，

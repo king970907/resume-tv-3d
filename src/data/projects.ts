@@ -8,6 +8,11 @@ export const PROJECTS: Project[] = [
     title: 'Project One',
     description: 'Placeholder project description.',
     tech: ['React', 'TypeScript'],
+    // 測試用縮圖——驗證光碟標籤/盒子封面貼圖用的真實圖片，之後有正式的
+    // 專案縮圖再換掉，不算最終內容。兩張圖故意不同，光碟標籤跟盒子封面
+    // 不用貼同一張。
+    thumbnail: '/thumbnails/project-1.png',
+    caseCover: '/thumbnails/case-1.png',
   },
   {
     id: 'project-2',

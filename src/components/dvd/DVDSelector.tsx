@@ -14,6 +14,7 @@ import {
   DVD_TRAY_INSERT_POSITION,
 } from '@/cores/const/scene'
 import {
+  CLICK_DRAG_THRESHOLD_PX,
   DVD_INSERT_DESCEND_DURATION,
   DVD_INSERT_DROP_DURATION,
   DVD_INSERT_FLY_DURATION,
@@ -186,6 +187,11 @@ export function DVDSelector({ isOpen, isInserting, hasDisc, trayRef, onSelect, o
 
   const handleBackdropClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
+    // 盒子特寫視角時 OrbitControls 被鎖住，使用者想拖曳鏡頭會「什麼都不會
+    // 動」，但放開滑鼠那一刻 R3F 還是會把這次操作當成一次 click 送到滑鼠
+    // 放開當下所在的物件——如果剛好放在背板上，沒有這個判斷的話會被誤判
+    // 成「點背板關閉選片」，見 CLICK_DRAG_THRESHOLD_PX 的說明。
+    if (event.delta > CLICK_DRAG_THRESHOLD_PX) return
     onClose()
   }
 
