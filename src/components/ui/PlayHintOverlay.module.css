@@ -23,7 +23,9 @@
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #f2f2ea;
-  font-family: 'Courier New', monospace;
+  /* 跟履歷頁提示文字同一套字型（VT323 配 Unifont-T 中文 fallback），
+     理由見 IntroOverlay.module.css 的 .hint 註解。 */
+  font-family: var(--font-retro);
   font-size: clamp(0.8rem, 1.6vw, 0.95rem);
   letter-spacing: 0.03em;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);

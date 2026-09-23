@@ -27,14 +27,19 @@
 
 .greeting {
   margin: 0;
-  font-family: 'Courier New', monospace;
+  /* 跟履歷頁大標題（ResumeIntroPage 的姓名）同一顆像素卡通字，開場第一
+     眼看到的字體就該跟後面履歷頁一致，不是各自兩套風格。 */
+  font-family: var(--font-pixel);
   font-size: clamp(2rem, 6vw, 4rem);
   letter-spacing: 0.04em;
 }
 
 .hint {
   margin: 12px 0 0;
-  font-family: 'Courier New', monospace;
+  /* 中文提示文字——跟履歷頁「▼ 點擊螢幕查看...」那組提示同一套字型
+     （VT323 配 Unifont-T 中文 fallback），不是還停在沒接上像素字的
+     Courier New。 */
+  font-family: var(--font-retro);
   font-size: clamp(0.85rem, 2vw, 1.1rem);
   color: #cfd8e8;
   opacity: 0.85;

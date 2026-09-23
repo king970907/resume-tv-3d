@@ -9,6 +9,22 @@
   font-display: swap;
 }
 
+/* Unifont-T——Pixelify Sans/VT323 都是純西文字型，不含中日文字符：履歷
+   內容裡的中文（自介、技能、經歷描述）原本會整段悄悄退回瀏覽器預設字體，
+   跟旁邊英文標題的像素風格對不上。這個字型收錄漢字，接在 --font-pixel/
+   --font-retro 這兩個 token 的西文字型後面當 fallback——CSS/canvas 2D
+   的字型堆疊都是「逐字找第一個有這個字符的字型」，不用另外寫判斷式區分
+   中英文，同一段文字裡中英文字符會自動各自挑到對的字型。原本用的是
+   MaruMonica（圓體像素字），使用者改指定成 GNU Unifont 的 unifont_t
+   變體——字型內部實際的 family name 是 "Unifont-T"（用 strings 檢查
+   二進位檔確認過，不是檔名）。GNU Unifont 是 SIL OFL 1.1 / GPLv2+
+   雙授權，商用/再散佈都允許。 */
+@font-face {
+  font-family: 'Unifont-T';
+  src: url('/fonts/unifont_t-18.0.01.otf') format('opentype');
+  font-display: swap;
+}
+
 /* ── Design Tokens ── */
 :root {
   --color-bg: #0a0a0a;
@@ -21,9 +37,12 @@
   --color-dvd-silver: #c0c0c0;
   --color-dvd-case: #2a2a3a;
 
-  --font-retro: 'VT323', 'Courier New', monospace;
-  --font-body: 'Space Mono', 'Courier New', monospace;
-  --font-pixel: 'Pixelify Sans', 'Courier New', monospace;
+  --font-retro: 'VT323', 'Unifont-T', 'Courier New', monospace;
+  /* 'Space Mono' 原本列在這裡，但從沒真的載入過（沒有 @font-face 也沒有
+     Google Fonts <link>），一直是悄悄退回 Courier New——拿掉不影響畫面，
+     只是把堆疊寫成瀏覽器實際在用的樣子，不留一個假的字型名字。 */
+  --font-body: 'Courier New', monospace;
+  --font-pixel: 'Pixelify Sans', 'Unifont-T', 'Courier New', monospace;
 
   --z-scene: 1;
   --z-overlay: 10;

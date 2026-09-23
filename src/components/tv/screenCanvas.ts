@@ -3,12 +3,45 @@
 // true」，呼叫端（RetroTV.tsx）負責建立 canvas/texture 跟排程重繪的時機
 // （例如雜訊要用 useFrame 節流重畫，內容頁只需要換頁時畫一次）。
 import type { ScreenPage } from '@/data/screenPages'
+import { RESUME_INTRO, RESUME_JOBS, RESUME_SKILLS } from '@/data/resumeContent'
 
 // 螢幕實體尺寸（TV_Screen_Glass 的世界座標寬高，見 blender-project/models/
 // tv/notes.md 量出來的 0.329 x 0.294624m）——貼圖解析度照同一個比例抓，
 // 內容才不會被拉伸變形。
 export const SCREEN_CANVAS_WIDTH = 512
 export const SCREEN_CANVAS_HEIGHT = Math.round(SCREEN_CANVAS_WIDTH * (0.294624 / 0.329))
+
+// 履歷頁在小螢幕上用的 SOUL 圖示——跟全螢幕疊層（ResumeFrame/Resume*Page）
+// 用的是同一組使用者提供的素材，這裡另外 new Image() 預先載入一份，是因為
+// canvas 2D 的 drawImage 沒辦法像 <img> 那樣等瀏覽器自動處理載入時機，得
+// 自己追蹤「圖片載到好了沒」。字型也一樣——canvas 文字不會像 DOM 那樣在
+// webfont 載入完成後自動重排，畫的當下字型還沒 ready 就會永久烙印成
+// fallback 字型，所以連同 document.fonts.load() 一起包進 screenAssetsReady，
+// 讓呼叫端（RetroTV.tsx）在真正的字型/圖片都緒後可以再補畫一次。
+const soulRedImage = new Image()
+soulRedImage.src = '/sprites/soul-red.png'
+const soulBlueImage = new Image()
+soulBlueImage.src = '/sprites/soul-blue.png'
+
+function whenImageReady(img: HTMLImageElement): Promise<void> {
+  if (img.complete) return Promise.resolve()
+  return new Promise((resolve) => {
+    img.addEventListener('load', () => resolve(), { once: true })
+    img.addEventListener('error', () => resolve(), { once: true })
+  })
+}
+
+export const screenAssetsReady: Promise<void> = Promise.all([
+  document.fonts.load('16px "Pixelify Sans"'),
+  document.fonts.load('16px "VT323"'),
+  // Unifont-T——中文 fallback 字型，理由跟 global.css 裡 --font-pixel/
+  // --font-retro 加這個 fallback 是同一個（Pixelify Sans/VT323 都不含
+  // 中文字符），小螢幕上的中文提示文字（「點擊螢幕查看...」）要靠它才
+  // 不會落回瀏覽器預設字體。
+  document.fonts.load('16px "Unifont-T"'),
+  whenImageReady(soulRedImage),
+  whenImageReady(soulBlueImage),
+]).then(() => undefined)
 
 // 螢幕關閉（開場文字階段用）——純黑，不用畫任何東西，呼叫端直接用一個
 // 純黑材質或把 canvas 整個清成黑色即可，這裡提供函式是為了跟其他繪圖
@@ -57,12 +90,197 @@ export function drawNoise(ctx: CanvasRenderingContext2D): void {
 // 邊界的內縮區域，不要用整個 canvas 尺寸。
 const SAFE_MARGIN_RATIO = 0.09
 
-// 內容頁——純色塊背景 + 置中標題/副標，先當佔位畫面用。之後要接真的作品
-// 內容（截圖、排版）時，換掉這個函式內部畫法就好，呼叫端的介面不用改。
-// 右上角標籤直接讀 page.badge——不管這個 page 是旋鈕轉台轉出來的
-// （badge 是 "CH 1/4" 這種格式）還是 DVD 選片放出來的（badge 固定是
-// "DVD"），這裡都不用關心來源，資料自己知道要顯示什麼標籤。
+// 履歷頁（resume-1/2/3）的 id 對應第幾頁（0-based）——跟全螢幕疊層那邊
+// FullscreenOverlay 用 MainScene 傳下來的 resumePageIndex 判斷是同一件事，
+// 這裡因為 drawPage() 只收得到 ScreenPage 本身，改用 id 反推，不用讓
+// RetroTV/Experience 這條路徑額外多穿一個 prop——page.id 本來就是資料
+// 自己決定的固定字串（見 screenPages.ts），不會變。
+function resumePageIndexFromId(id: string): number | null {
+  const match = /^resume-(\d)$/.exec(id)
+  if (!match) return null
+  return Number(match[1]) - 1
+}
+
+// 缺角矩形路徑——履歷頁 Undertale 風格對話框的邊框形狀，跟全螢幕疊層
+// （ResumeFrame.module.css）用 CSS clip-path 疊兩層做的是同一個形狀，
+// 這裡在 canvas 2D 用路徑點手畫，兩邊維持同一套視覺語言。
+function pathNotchedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, notch: number): void {
+  ctx.beginPath()
+  ctx.moveTo(x + notch, y)
+  ctx.lineTo(x + w - notch, y)
+  ctx.lineTo(x + w, y + notch)
+  ctx.lineTo(x + w, y + h - notch)
+  ctx.lineTo(x + w - notch, y + h)
+  ctx.lineTo(x + notch, y + h)
+  ctx.lineTo(x, y + h - notch)
+  ctx.lineTo(x, y + notch)
+  ctx.closePath()
+}
+
+// 履歷頁共用的外殼——頂部系統列（SYS://RESUME.EXE + Blue SOUL 頻道徽章）+
+// 缺角對話框，跟全螢幕疊層的 ResumeFrame 是同一套視覺，只是縮到小螢幕的
+// 解析度。回傳缺角對話框內部可用的內容區域，讓各頁畫自己的內容。
+function drawResumeChrome(ctx: CanvasRenderingContext2D, resumeIndex: number): { x: number; y: number; w: number; h: number } {
+  const w = SCREEN_CANVAS_WIDTH
+  const h = SCREEN_CANVAS_HEIGHT
+  const marginX = w * SAFE_MARGIN_RATIO
+  const marginY = h * SAFE_MARGIN_RATIO
+
+  ctx.fillStyle = '#050505'
+  ctx.fillRect(0, 0, w, h)
+
+  // 掃描線——跟原本的做法一樣，鋪滿全螢幕。
+  ctx.globalAlpha = 0.06
+  ctx.fillStyle = '#ffffff'
+  for (let y = 0; y < h; y += 3) {
+    ctx.fillRect(0, y, w, 1)
+  }
+  ctx.globalAlpha = 1
+
+  // 頂部系統列。
+  const systemY = marginY
+  ctx.font = '11px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#6f7266'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText('SYS://RESUME.EXE', marginX, systemY)
+
+  const badgeText = `CH 0${resumeIndex + 1}/03`
+  ctx.font = '11px "Pixelify Sans", "Unifont-T", monospace'
+  ctx.textAlign = 'right'
+  ctx.fillStyle = '#eef0e6'
+  const badgeWidth = ctx.measureText(badgeText).width
+  const soulSize = 12
+  const soulGap = 6
+  const badgeRight = w - marginX
+  ctx.fillText(badgeText, badgeRight, systemY)
+  if (soulBlueImage.complete) {
+    ctx.drawImage(soulBlueImage, badgeRight - badgeWidth - soulGap - soulSize, systemY - 1, soulSize, soulSize)
+  }
+
+  // 缺角對話框——雙層 path 疊出白色缺角框 + 黑色內層，跟 CSS 那邊兩層
+  // clip-path 是同一個做法。
+  const boxTop = systemY + 22
+  const boxX = marginX
+  const boxY = boxTop
+  const boxW = w - marginX * 2
+  const boxH = h - marginY - boxTop
+  ctx.fillStyle = '#eef0e6'
+  pathNotchedRect(ctx, boxX, boxY, boxW, boxH, 10)
+  ctx.fill()
+  const borderT = 4
+  ctx.fillStyle = '#050505'
+  pathNotchedRect(ctx, boxX + borderT, boxY + borderT, boxW - borderT * 2, boxH - borderT * 2, 8)
+  ctx.fill()
+
+  const pad = 16
+  return { x: boxX + borderT + pad, y: boxY + borderT + pad, w: boxW - borderT * 2 - pad * 2, h: boxH - borderT * 2 - pad * 2 }
+}
+
+// CH 01——個人簡介，縮到小螢幕的濃縮版：只留姓名/職稱，長篇自介留給
+// 全螢幕頁（點螢幕看），這裡放不下也不需要放，小螢幕的作用是「頻道
+// 預覽」不是「完整內容」。
+function drawResumeIntro(ctx: CanvasRenderingContext2D, area: { x: number; y: number; w: number; h: number }): void {
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+
+  ctx.font = '13px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#9a9d90'
+  ctx.fillText('> whoami', area.x, area.y + 14)
+
+  const soulSize = 18
+  if (soulRedImage.complete) {
+    ctx.drawImage(soulRedImage, area.x, area.y + 30, soulSize, soulSize)
+  }
+  ctx.font = 'bold 24px "Pixelify Sans", "Unifont-T", monospace'
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(RESUME_INTRO.name, area.x + soulSize + 10, area.y + 46)
+
+  ctx.font = '13px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#9a9d90'
+  ctx.fillText('> role --print', area.x, area.y + 78)
+  ctx.font = '12px "Pixelify Sans", "Unifont-T", monospace'
+  ctx.fillStyle = '#eef0e6'
+  ctx.fillText(RESUME_INTRO.role, area.x + 20, area.y + 100)
+
+  ctx.font = '12px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#6f7266'
+  ctx.fillText('▼ 點擊螢幕查看完整簡介', area.x, area.y + area.h - 6)
+}
+
+// CH 02——技能，濃縮成分類名稱清單（不逐項畫技能等級條，那個留給全螢幕
+// 頁——512x458 這個解析度塞得下標題，塞不下一長串分段像素條還要保持
+// 看得清楚）。
+function drawResumeSkills(ctx: CanvasRenderingContext2D, area: { x: number; y: number; w: number; h: number }): void {
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+
+  ctx.font = '13px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#9a9d90'
+  ctx.fillText('> cat skills.txt', area.x, area.y + 14)
+
+  const soulSize = 14
+  const rowStart = area.y + 42
+  const rowGap = 32
+  RESUME_SKILLS.forEach((category, i) => {
+    const rowY = rowStart + i * rowGap
+    if (soulRedImage.complete) {
+      ctx.drawImage(soulRedImage, area.x, rowY - soulSize + 4, soulSize, soulSize)
+    }
+    ctx.font = '15px "Pixelify Sans", "Unifont-T", monospace'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(category.name, area.x + soulSize + 10, rowY)
+  })
+
+  ctx.font = '12px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#6f7266'
+  ctx.fillText('▼ 點擊螢幕查看完整技能列表', area.x, area.y + area.h - 6)
+}
+
+// CH 03——工作經歷，濃縮成職稱/公司清單（不逐條畫描述文字，理由同上）。
+function drawResumeExperience(ctx: CanvasRenderingContext2D, area: { x: number; y: number; w: number; h: number }): void {
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+
+  ctx.font = '13px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#9a9d90'
+  ctx.fillText('> ls -la experience/', area.x, area.y + 14)
+
+  const soulSize = 14
+  const rowStart = area.y + 42
+  const rowGap = 40
+  RESUME_JOBS.forEach((job, i) => {
+    const rowY = rowStart + i * rowGap
+    if (soulRedImage.complete) {
+      ctx.drawImage(soulRedImage, area.x, rowY - soulSize + 4, soulSize, soulSize)
+    }
+    ctx.font = '13px "Pixelify Sans", "Unifont-T", monospace'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(`${job.role} @ ${job.company}`, area.x + soulSize + 10, rowY)
+    ctx.font = '11px "VT323", "Unifont-T", monospace'
+    ctx.fillStyle = '#9a9d90'
+    ctx.fillText(job.dates, area.x + soulSize + 10, rowY + 15)
+  })
+
+  ctx.font = '12px "VT323", "Unifont-T", monospace'
+  ctx.fillStyle = '#6f7266'
+  ctx.fillText('▼ 點擊螢幕查看完整經歷', area.x, area.y + area.h - 6)
+}
+
+// 內容頁——履歷三頁（resume-1/2/3）用 Undertale 風格的缺角對話框，其餘
+// 頁面（DVD 選片放出來的作品內容）維持原本「純色塊背景 + 置中標題/副標」
+// 的通用版面，這次只重新設計履歷頁，作品集頁還沒有另外討論過要不要跟進
+// 同一套風格，先不動。
 export function drawPage(ctx: CanvasRenderingContext2D, page: ScreenPage): void {
+  const resumeIndex = resumePageIndexFromId(page.id)
+  if (resumeIndex !== null) {
+    const area = drawResumeChrome(ctx, resumeIndex)
+    if (resumeIndex === 0) drawResumeIntro(ctx, area)
+    else if (resumeIndex === 1) drawResumeSkills(ctx, area)
+    else drawResumeExperience(ctx, area)
+    return
+  }
+
   const w = SCREEN_CANVAS_WIDTH
   const h = SCREEN_CANVAS_HEIGHT
   const marginX = w * SAFE_MARGIN_RATIO

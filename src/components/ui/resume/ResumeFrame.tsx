@@ -51,7 +51,6 @@ export function ResumeFrame({ channel, channelCount, onPrevChannel, onNextChanne
 
       <div className={styles.navRow}>
         <button type="button" className={styles.navButton} onClick={onPrevChannel}>‹ CH {pad(prevChannel)}</button>
-        <span className={styles.navPrompt}>guest@resume-tv:~$ <span className={styles.cursor}>█</span></span>
         <button type="button" className={styles.navButton} onClick={onNextChannel}>CH {pad(nextChannel)} ›</button>
       </div>
     </div>

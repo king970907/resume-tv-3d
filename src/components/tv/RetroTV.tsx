@@ -8,7 +8,7 @@ import type { Mesh, MeshStandardMaterial, Object3D } from 'three'
 import { TV_POSITION } from '@/cores/const/scene'
 import { KNOB_DEFAULT_PAGE_COUNT, KNOB_STEP_DURATION } from '@/cores/const/interaction'
 import { SCREEN_NOISE_REDRAW_INTERVAL_MS } from '@/cores/const/screen'
-import { SCREEN_CANVAS_HEIGHT, SCREEN_CANVAS_WIDTH, drawNoise, drawOff, drawPage } from './screenCanvas'
+import { SCREEN_CANVAS_HEIGHT, SCREEN_CANVAS_WIDTH, drawNoise, drawOff, drawPage, screenAssetsReady } from './screenCanvas'
 import type { ScreenPage } from '@/data/screenPages'
 
 // 螢幕現在要顯示什麼——'off' 是開場文字階段用的純黑，'loading' 是雜訊
@@ -265,6 +265,18 @@ export function RetroTV({
     } else if (screenContent.mode === 'page') {
       drawPage(ctx, screenContent.page)
       texture.needsUpdate = true
+
+      // 履歷頁用到的 Pixelify Sans/VT323 網頁字型跟 SOUL 圖示，剛載入頁面
+      // 時很可能還沒 ready——canvas 文字/圖片不像 DOM 那樣載入完成會自動
+      // 重排，這裡先照樣畫一次（fallback 字型/缺圖示也堪用），字型/圖片
+      // 真的緒了之後再補畫一次正確版本。screenAssetsReady 整個 session
+      // 只會真的等待一次，之後每次呼叫都是立刻 resolve，不會每次切頁都
+      // 產生明顯的重畫延遲。
+      screenAssetsReady.then(() => {
+        if (screenCtxRef.current !== ctx || screenTextureRef.current !== texture) return
+        drawPage(ctx, screenContent.page)
+        texture.needsUpdate = true
+      })
     } else {
       drawNoise(ctx)
       texture.needsUpdate = true

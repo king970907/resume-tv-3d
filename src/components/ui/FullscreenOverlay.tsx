@@ -58,22 +58,11 @@ export function FullscreenOverlay({ page, fadingOut, onClose, resumePageIndex, o
         background: '#07080a',
       }}
     >
-      {isResumePage ? (
-        // 履歷頁的關閉鍵改用使用者提供的 MERCY 按鈕素材——概念上「離開這
-        // 個畫面」跟 Undertale 裡「饒恕/結束戰鬥」的語意接近，比中性的 ✕
-        // 更有戲。旁邊配一個小小的 Xbox B 圖示當作「B 鍵 = 返回」的提示，
-        // 跟遊戲主機選單的慣例一致。
-        <div className={styles.mercyCloseWrap}>
-          <img src="/sprites/xbox-b.png" alt="" className={styles.xboxHint} />
-          <button type="button" className={styles.mercyButton} onClick={onClose} aria-label="關閉全螢幕">
-            <img src="/sprites/mercy-button.png" alt="MERCY" className={styles.mercyImg} />
-          </button>
-        </div>
-      ) : (
-        <button type="button" className={styles.closeButton} onClick={onClose} aria-label="關閉全螢幕">
-          ✕
-        </button>
-      )}
+      {/* 關閉鍵原本在履歷頁試過換成 MERCY 素材 + Xbox B 提示圖示，使用者
+          看過覺得還是單純的 ✕ 比較好認，改回跟作品集播放頁共用同一顆。 */}
+      <button type="button" className={styles.closeButton} onClick={onClose} aria-label="關閉全螢幕">
+        ✕
+      </button>
 
       {isResumePage ? (
         <ResumeFrame
