@@ -1,16 +1,36 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Experience } from './Experience'
 import { IntroOverlay } from '@/components/ui/IntroOverlay'
 import { FullscreenOverlay } from '@/components/ui/FullscreenOverlay'
 import { PlayHintOverlay } from '@/components/ui/PlayHintOverlay'
 import { CAMERA_FOV, CAMERA_POSITION } from '@/cores/const/scene'
 import { CHANNEL_SWITCH_LOADING_DURATION } from '@/cores/const/screen'
+import { DEFAULT_SCENE_TUNING } from '@/cores/const/sceneTuning'
 import { RESUME_PAGES, projectToScreenPage } from '@/data/screenPages'
 import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import type { ScreenPhase } from '@/cores/types/screenPhase'
+import type { SceneTuning } from '@/cores/types/sceneTuning'
 import styles from './MainScene.module.css'
+
+// 燈光調配面板要不要顯示——本機 `npm run dev`（import.meta.env.DEV）
+// 自動開，不用額外設定就能用；VITE_SHOW_LIGHTING_CONTROLS 這個環境變數
+// 是額外的手動開關，給「build 出來的版本也想開面板」這種情境用（例如
+// 部署到 Vercel 的某個 preview 環境想遠端微調），不用回頭跑本機 dev
+// server。變數要寫進 .env.local（見 .env.local.example，這個檔案本身
+// 被 .gitignore 的 `*.local` 規則擋掉，不會進版控）或 Vercel 專案設定
+// 的環境變數——**正式站的 Vercel 專案不要設這個變數，才會維持關閉**，
+// 這也是沒設定時的預設行為（未定義 !== 'true'，一律當作關閉）。
+const SHOW_LIGHTING_CONTROLS = import.meta.env.DEV || import.meta.env.VITE_SHOW_LIGHTING_CONTROLS === 'true'
+
+// 動態 import——LightingControls.tsx 內部用到的 leva 只在上面
+// SHOW_LIGHTING_CONTROLS 為真時才會真的被載入，這裡用 React.lazy()
+// 讓 Vite 把它跟主要 chunk 分開打包，不需要顯示面板的情境（包含正式站
+// 預設狀態）不會有人去抓這個 chunk，不會拖累使用者實際下載的 JS 大小。
+const LightingControls = lazy(() =>
+  import('./LightingControls').then((mod) => ({ default: mod.LightingControls })),
+)
 
 // Canvas 有自己獨立的 render loop，跟 React 的 render 週期不同步——
 // 裡面（Experience）裝的是 Three.js 的場景圖，不是 DOM。
@@ -21,6 +41,9 @@ import styles from './MainScene.module.css'
 // 不能塞進 3D 場景裡；實際的鏡頭運鏡/計時邏輯則交給 Experience 透過
 // onPhaseChange 回報狀態該往下一步走了。
 export function MainScene() {
+  // 場景燈光/霧/背景——預設值就是原本寫死的那組數字，開發模式下才會被
+  // 下面的 <LightingControls> 即時覆寫（見它的說明）。
+  const [tuning, setTuning] = useState<SceneTuning>(DEFAULT_SCENE_TUNING)
   const [phase, setPhase] = useState<ScreenPhase>('intro')
   // 履歷（頻道旋鈕轉台）目前瀏覽到第幾頁。
   const [resumePageIndex, setResumePageIndex] = useState(0)
@@ -99,6 +122,15 @@ export function MainScene() {
 
   return (
     <div className={styles.scene}>
+      {/* leva 面板本身是 DOM（portal 到 document.body），跟 <Canvas>
+          平行放，不用塞進 3D 場景裡。顯示條件見 SHOW_LIGHTING_CONTROLS
+          的說明——不顯示時連這個 lazy chunk 都不會被瀏覽器抓取。 */}
+      {SHOW_LIGHTING_CONTROLS && (
+        <Suspense fallback={null}>
+          <LightingControls onChange={setTuning} />
+        </Suspense>
+      )}
+
       <Canvas
         shadows
         camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }}
@@ -106,6 +138,7 @@ export function MainScene() {
       >
         <Suspense fallback={null}>
           <Experience
+            tuning={tuning}
             phase={phase}
             onPhaseChange={setPhase}
             resumePageCount={RESUME_PAGES.length}
