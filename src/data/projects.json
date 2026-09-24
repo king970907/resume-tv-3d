@@ -1,0 +1,22 @@
+[
+  {
+    "id": "project-1",
+    "title": "Project One",
+    "description": "Placeholder project description.",
+    "tech": ["React", "TypeScript"],
+    "thumbnail": "/thumbnails/project-1.png",
+    "caseCover": "/thumbnails/case-1.png"
+  },
+  {
+    "id": "project-2",
+    "title": "Project Two",
+    "description": "Placeholder project description.",
+    "tech": ["Three.js"]
+  },
+  {
+    "id": "project-3",
+    "title": "Project Three",
+    "description": "Placeholder project description.",
+    "tech": ["Node.js"]
+  }
+]

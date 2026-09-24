@@ -1,29 +1,8 @@
 import type { Project } from '@/cores/types/project'
+import projectsData from './projects.json'
 
-// Placeholder 內容——一片 DVD 對應一筆，數量會決定 DVD 盒裡要排幾片碟。
-// 真實履歷內容確定後直接替換這裡，不用動任何渲染邏輯。
-export const PROJECTS: Project[] = [
-  {
-    id: 'project-1',
-    title: 'Project One',
-    description: 'Placeholder project description.',
-    tech: ['React', 'TypeScript'],
-    // 測試用圖——驗證 3D 光碟標籤/盒子封面貼圖用的真實圖片，之後有正式
-    // 的專案素材再換掉，不算最終內容。兩張圖故意不同，光碟標籤跟盒子
-    // 封面不用貼同一張。
-    thumbnail: '/thumbnails/project-1.png',
-    caseCover: '/thumbnails/case-1.png',
-  },
-  {
-    id: 'project-2',
-    title: 'Project Two',
-    description: 'Placeholder project description.',
-    tech: ['Three.js'],
-  },
-  {
-    id: 'project-3',
-    title: 'Project Three',
-    description: 'Placeholder project description.',
-    tech: ['Node.js'],
-  },
-]
+// 一片 DVD 對應一筆，數量會決定 DVD 盒裡要排幾片碟。內容放在
+// projects.json（跟程式碼分開，方便直接編輯/置換），這裡只負責掛型別、
+// 給其他檔案 import——JSON 本身不能寫型別/註解，型別檢查跟語意說明都
+// 留在這裡做。
+export const PROJECTS: Project[] = projectsData

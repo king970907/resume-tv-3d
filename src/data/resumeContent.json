@@ -1,0 +1,61 @@
+{
+  "intro": {
+    "name": "JORDAN LIAO",
+    "role": "FRONTEND / CREATIVE TECHNOLOGIST",
+    "bio": "擔任前端工程師已有 5 年經歷，曾參與大型電商平台、會員系統、後台管理系統及企業網站開發，專注於 Vue／Nuxt、生產環境效能優化、SSR 與前端工程化，並具有 Vue 2 → Vue 3 大型重構經驗。\n\n目前投入大型金融系統平台開發，涵蓋資料視覺化、Micro Frontend、APM／Tracing（Dynatrace、OpenTelemetry）整合，以及 AI 輔助開發流程建置。同時具備 Node.js 後端開發經驗，曾參與後台系統與 API 開發，並負責資料轉換器（Converter）等平台工具建置。\n\n具備從前端介面、資料視覺化到後端服務與系統整合的開發經驗，持續提升系統可維護性、開發效率與團隊協作流程。"
+  },
+  "skills": [
+    {
+      "name": "FRONTEND",
+      "skills": [
+        { "name": "Vue / Nuxt", "level": 9 },
+        { "name": "React", "level": 8 },
+        { "name": "TypeScript", "level": 8 },
+        { "name": "Three.js", "level": 6 }
+      ]
+    },
+    {
+      "name": "Backend",
+      "skills": [
+        { "name": "Node", "level": 7 },
+        { "name": "PHP", "level": 6 },
+        { "name": "C#", "level": 6 }
+      ]
+    },
+    {
+      "name": "DevOps / Others",
+      "skills": [
+        { "name": "Git", "level": 9 },
+        { "name": "Docker", "level": 7 },
+        { "name": "CICD", "level": 7 },
+        { "name": "AI-assisted Development", "level": 8 }
+      ]
+    }
+  ],
+  "jobs": [
+    {
+      "dates": "2026/03 — NOW",
+      "role": "資深前端工程師",
+      "company": "緯創軟體股份有限公司",
+      "description": "負責樹狀圖與關聯圖視覺化平台前/後台開發（全端），將 Dynatrace、OpenTelemetry 等 tracing 資料轉換為可互動的節點結構，協助團隊分析系統瓶頸。"
+    },
+    {
+      "dates": "2024/03 — 2026/03",
+      "role": "資深前端工程師",
+      "company": "美而快實業股份有限公司",
+      "description": "主導電商平台 Vue 2 → Vue 3 升級，處理相容性問題、重構核心模組並清理技術債"
+    },
+    {
+      "dates": "2022/08 — 2024/03",
+      "role": "前端開發工程師",
+      "company": "普羅傑有限公司",
+      "description": "維護 jQuery / Bootstrap 舊系統，並逐步以 React 重構功能模組"
+    },
+    {
+      "dates": "2021/09 — 2022/08",
+      "role": "前端開發工程師",
+      "company": "翔豪顧問管理有限公司",
+      "description": "開發企業網站、活動頁與後台系統，負責 RWD 與互動功能實作"
+    }
+  ]
+}

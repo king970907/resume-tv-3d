@@ -49,14 +49,22 @@ render inside.
 
 ## Data Layer
 
-- `src/data/projects.ts` — `PROJECTS: Project[]` (the scene only ever holds
-  `PROJECTS[0]` as the single interactive DVD — see Phase Plan)
-- `src/data/resumeContent.ts` — résumé page content (intro/skills/experience)
-- `src/data/screenPages.ts` — `ScreenPage` shape + `RESUME_PAGES`; résumé
-  pages are authored directly as `ScreenPage`s, while `projectToScreenPage()`
-  converts a `Project` into the same shape on the fly (résumé and project
-  content are separate data, but share one rendering shape)
-- No API calls — everything is static
+Actual content lives in build-time-imported `.json` files, kept beside a
+thin `.ts` wrapper that adds the type annotation and re-exports (JSON can't
+carry types or comments, so those stay in the `.ts` file). Still fully
+static — no API calls, no runtime fetch — just content separated from code:
+
+- `src/data/projects.json` + `projects.ts` — `PROJECTS: Project[]` (the
+  scene only ever holds `PROJECTS[0]` as the single interactive DVD — see
+  Phase Plan)
+- `src/data/resumeContent.json` + `resumeContent.ts` — résumé page content
+  (intro/skills/experience)
+- `src/data/resumePages.json` — the small in-scene canvas texture's résumé
+  page content (title/subtitle/accent color only)
+- `src/data/screenPages.ts` — `ScreenPage` shape, reads `resumePages.json`
+  into `RESUME_PAGES`; `projectToScreenPage()` converts a `Project` into the
+  same shape on the fly (résumé and project content are separate data, but
+  share one rendering shape)
 
 ## Cores
 

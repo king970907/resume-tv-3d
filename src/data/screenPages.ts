@@ -1,5 +1,6 @@
 import type { Project } from '@/cores/types/project'
 import { PROJECTS } from './projects'
+import resumePagesData from './resumePages.json'
 
 // TV 螢幕要顯示的「頁面」資料——先用簡單佔位內容（純色塊+標題+副標），
 // 之後真正要接履歷內容時只要換這個陣列，畫面/貼圖邏輯不用動。頻道旋鈕
@@ -28,27 +29,9 @@ export interface ScreenPage {
 
 // 履歷頁佔位內容——注意 badge 是這裡就先算好的固定字串，不是畫圖時才
 // 動態組字串，跟作品集播放頁的 badge 一樣都是「資料自己知道要顯示什麼
-// 標籤」，drawPage() 不用另外傳 pageNumber/pageCount 進去組字串。
-const RESUME_PLACEHOLDER_PAGES: Omit<ScreenPage, 'badge'>[] = [
-  {
-    id: 'resume-1',
-    title: 'RESUME ONE',
-    subtitle: 'Placeholder subtitle — replace with real resume summary',
-    accentColor: '#39ff14',
-  },
-  {
-    id: 'resume-2',
-    title: 'RESUME TWO',
-    subtitle: 'Placeholder subtitle — replace with real resume summary',
-    accentColor: '#5aa9e6',
-  },
-  {
-    id: 'resume-3',
-    title: 'RESUME THREE',
-    subtitle: 'Placeholder subtitle — replace with real resume summary',
-    accentColor: '#ffb066',
-  },
-]
+// 標籤」，drawPage() 不用另外傳 pageNumber/pageCount 進去組字串。內容
+// 放在 resumePages.json（跟程式碼分開，方便直接編輯/置換）。
+const RESUME_PLACEHOLDER_PAGES: Omit<ScreenPage, 'badge'>[] = resumePagesData
 
 export const RESUME_PAGES: ScreenPage[] = RESUME_PLACEHOLDER_PAGES.map((page, i) => ({
   ...page,

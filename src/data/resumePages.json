@@ -1,0 +1,20 @@
+[
+  {
+    "id": "resume-1",
+    "title": "RESUME ONE",
+    "subtitle": "Placeholder subtitle — replace with real resume summary",
+    "accentColor": "#39ff14"
+  },
+  {
+    "id": "resume-2",
+    "title": "RESUME TWO",
+    "subtitle": "Placeholder subtitle — replace with real resume summary",
+    "accentColor": "#5aa9e6"
+  },
+  {
+    "id": "resume-3",
+    "title": "RESUME THREE",
+    "subtitle": "Placeholder subtitle — replace with real resume summary",
+    "accentColor": "#ffb066"
+  }
+]
