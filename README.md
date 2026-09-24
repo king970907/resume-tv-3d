@@ -33,7 +33,7 @@ under "Screen render strategy" for why.
 | Framework | React 19 + TypeScript |
 | Build | Vite |
 | 3D | Three.js + react-three-fiber + drei |
-| Animation | GSAP (camera dolly, DVD insert) |
+| Animation | GSAP for 3D (camera dolly, DVD insert); plain CSS `@keyframes` + a small `useTypewriter` hook for the 2D résumé/project overlay — no DOM animation library |
 | Styling | CSS Modules + CSS custom properties |
 
 ## Getting Started
@@ -55,7 +55,9 @@ src/
 │   └── ui/             — Fullscreen DOM overlay shown when the screen is
 │                          opened: terminal/ (shared TerminalFrame), resume/,
 │                          projects/, plus the intro/play-hint overlays
-├── data/               — projects.ts, resumeContent.ts, screenPages.ts (static content)
+├── data/               — content in .json files, thin .ts wrappers add
+│                          types/re-exports (projects, resumeContent,
+│                          resumePages, screenPages) — see CLAUDE.md Data Layer
 ├── cores/
 │   ├── types/          — shared TS interfaces
 │   └── const/           — shared tuning constants

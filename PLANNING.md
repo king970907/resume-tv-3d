@@ -29,11 +29,9 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 3D 內是貼圖，互動時全螢幕 DOM overlay。放棄了 `<Html transform>`（透視/遮擋問題）跟 DOM→canvas render-to-texture（失去原生互動、要自己接 raycast→DOM 座標轉換）。
 
-### 建模：程式化 blockout 優先，Blender 待評估
+### ⚠️ 已作廢：建模原本是程式化 blockout（three.js primitive），Blender 待評估
 
-目前全部是 three.js/drei primitive（`RoundedBox`、`boxGeometry`、`cylinderGeometry`）手刻，沒有另外用 Blender。`RoundedBox`（真的有導角幾何，不是貼圖討巧）用在看得到邊緣的外殼；陽春 `boxGeometry` 用在機構件/不顯眼的部件，省三角形成本。
-
-**CRT 電視後方圓弧「大屁股」造型目前跳過**——box 系列 geometry 做不出「前方正、後方漸縮成圓弧」這種漸變曲面，這個留到評估 Blender 的階段再處理（`LatheGeometry` 或 Blender sculpt/lathe 都是候選做法）。
+寫這節的時候全部是 three.js/drei primitive（`RoundedBox`、`boxGeometry`、`cylinderGeometry`）手刻，還沒用 Blender，CRT 電視後方圓弧「大屁股」造型當時也還做不出來（box 系列 geometry 生不出「前方正、後方漸縮成圓弧」這種漸變曲面）。這兩個問題後來都靠 Blender pass 解決了（見下方「已完成：Blender pass」）——`LatheGeometry`/primitive 疊層這條路線整個放棄，四個模型全部重新在 Blender 建。
 
 ### TV 旋鈕：點擊式切頁，不是自由拖曳
 
@@ -46,7 +44,7 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 ### DVD 盒：一片碟 = 一個項目，直接點碟選片
 
-盒子打開後裡面排的是 `PROJECTS`（`src/data/projects.ts`，目前是 placeholder）裡的每一筆，一筆一片碟。選片是**直接點想要的那片碟**（不是用旋鈕當選單游標），選中後之後會觸發「飛進 player」的動畫（還沒做）。旋鈕全程跟選片無關，只負責固定的個人頁面。
+盒子打開後裡面排的是 `PROJECTS`（`src/data/projects.json`）裡的每一筆，一筆一片碟。選片是**直接點想要的那片碟**（不是用旋鈕當選單游標）。旋鈕全程跟選片無關，只負責固定的個人頁面。
 
 `DVD_CASE_WIDTH`/`DVD_CASE_DEPTH` 之前被手動對調過（0.02/0.23），這次因為要塞碟片進去踩到真的坑：碟片直徑 0.144 比對調後的寬度窄 10 倍塞不進去，改成側面朝向後，圓面又落在跟主鏡頭視角垂直的平面上、幾乎看不到（用鮮豔除錯色 + 大幅轉鏡頭驗證過，不是猜的）。最後改回真實比例（`WIDTH=0.23`、`DEPTH=0.02`）才解決，這也是「先驗證再下結論」這個習慣抓到的一個好例子。
 
@@ -54,7 +52,21 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 盒子改回真實比例後，原本「站立、底部支點、傾角靠向 TV」那套姿態徹底跑掉——同一組角度套在變寬的物體上，寬的那個方向邊緣被甩出去更多，會撐出去疊到 DVD player。與其重新算一次寬版的傾斜三角函數，直接改需求：盒子**平放在 TV 頂面**，隨性斜放，不需要任何「底部貼地」的物理支點。整段 lean-pivot 邏輯拿掉，換成單純的 `DVD_CASE_REST_POSITION` + `DVD_CASE_REST_ROTATION`。
 
-### 選片畫面：碟片飛到鏡頭前，用打光「製造」黑背景
+### ⚠️ 已作廢：選片畫面原本是「碟片飛到鏡頭前扇形排列」，後來整個重做成「單一光碟 + 盒子特寫視角」
+
+這節以下是**歷史記錄**，不是目前的設計——早期版本場景裡有 3 片碟，開盒後 `DVDSelector` 把它們用世界座標飛到鏡頭前排成扇形，靠打光製造黑背景，點黑色背景關閉。這套設計後來被判定是換片 bug 的根源（新舊碟同時 attach 在 tray 上互相重疊），使用者確認後**整個場景改成只留一片光碟**：開 case 直接運鏡到盒子特寫視角（跟「點螢幕聚焦」同一種運鏡模式），點光碟觸發「放進 player」動畫、點光碟以外的地方鏡頭退回螢幕正面。
+
+現在的設計（`DVDSelector.tsx`）：
+- 只渲染 `PROJECTS[0]` 這一片碟，靜置在盒子裡量出來的世界座標（`DVD_CASE_DISC_REST_POSITION`/`ROTATION`，見 `scene.ts`），沒有扇形排列、沒有待機自轉、沒有 hover 轉正這些邏輯
+- 開盒觸發的是**完整運鏡到 `CAMERA_CASE_POSITION`/`TARGET`/`FOV`**（比照 `CAMERA_FOCUS_*` 那套「同時補間 position/target/fov」手法），不是原本的「鏡頭拉遠留扇形排列空間」
+- 插入動畫從三段式（縮小→邊飛邊翻正→放下）簡化成兩段式（邊飛邊翻正→放下）——原本的「縮小」是因為碟片在扇形排列時被放大過，現在碟片本來就是盒內原始大小，不需要這段
+- 「點黑色背景關閉選片」這個 raycast 技巧本身沿用下來（背板只有開盒時才掛載/可見，理由跟原本一樣）
+- `DVDCase.tsx` 再點一次可以真的關闔蓋子（跟選片/取消選片維持蓋子開著是分開判斷的兩種情境，見 `explicitCloseRef`）
+
+以下這三段原本描述舊設計的內容保留當歷史記錄用（曾經踩過的坑仍然有參考價值），不代表現在的行為：
+
+<details>
+<summary>舊設計細節（已作廢，僅供參考）</summary>
 
 點開盒子後，`DVDSelector`（跟 `DVDCase`平行、不是它的子元件）把 `PROJECTS` 的碟片用**世界座標**飛到鏡頭前方排成一列——故意不當 `DVDCase` 的子物件，因為子物件的座標會被盒子本身的姿態（現在是平放+隨機斜角）汙染，算不出乾淨的「鏡頭前方」目標點。
 
@@ -64,7 +76,22 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 點黑色背景關閉選片：`DVDSelector` 裡有一片平常不可見的全螢幕背板，跟碟片同一條鏡頭前方的射線、擺在碟片扇形的後面，只有選片開啟時才會 `visible = true`（同時打開它的 raycast——three.js 物件 `visible = false` 會連 raycast 也一起關掉，關閉時不會誤擋到場景其他物件的點擊）。點碟片以外的地方，射線會穿過扇形之間的空隙打中這片背板，觸發跟選片/點盒子一樣的關閉邏輯。
 
-### DVD player 造型細節：疊層矇混，沒有真的挖洞/雕出曲面
+</details>
+
+### 履歷/作品內容改成 JSON，跟程式碼分開放
+
+`src/data/` 底下每份內容資料都拆成「`.json`（實際內容）+ 同名 `.ts`（型別註解、re-export）」兩個檔案——JSON 不能寫型別/註解，這兩個功能留在 `.ts`。純粹是 build-time 靜態 import（Vite 原生支援，`tsconfig.app.json` 開 `resolveJsonModule` 配合型別檢查），不是為了「不重新部署就能改內容」——沒有引入 runtime fetch，仍然完全靜態、沒有 API 呼叫。目的單純是內容資料方便直接編輯、跟渲染邏輯分開放。
+
+### 履歷頁動畫：打字機、血條填滿、經歷逐筆浮現，都是純 CSS，沒有用動畫套件
+
+DOM 疊層（`src/components/ui/`）目前只有 GSAP 管 3D 那邊的鏡頭/DVD 動畫，2D 頁面本身完全沒有用動畫套件——三個效果都是 `@keyframes` + React 算好 `animationDelay`/`animation-delay` 用 inline style 帶進去做錯開，加一個自己寫的 `useTypewriter` hook（`setInterval` 累加字元數，不是各字元各自排 timer）。打字機支援「跑到一半點畫面直接完成」的手勢（Undertale 對話框標準操作），用一個 ref 存 interval id 讓 `skip()` 可以從 hook 外部呼叫。
+
+### ⚠️ 已作廢：DVD player 造型細節這節描述的是舊版 primitive 疊層做法
+
+跟上面 DVD 選片流程一樣是歷史記錄——寫這節的時候 `DVDPlayer` 還是 three.js primitive 手刻疊層（沒有真的挖洞/雕刻），後來整台換成 Blender 匯出的真實模型（見「已完成：Blender pass」），tray 凹槽、通風孔這些現在是真的幾何，不是疊層矇混。內容保留當年踩過的坑供參考：
+
+<details>
+<summary>舊設計細節（已作廢，僅供參考）</summary>
 
 `DVDPlayer.tsx` 這輪加了前面板按鈕（play/stop/eject/power，純造型不掛點擊）、LED 顯示幕（跟 TV 螢幕同一套深色底+綠色 emissive 手法）、tray 外圍深色邊框、頂部通風孔、四角橡膠腳。全部是 primitive 疊層，沒有一項用到布林運算或雕刻：
 
@@ -72,30 +99,32 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 - **通風孔位置抓在 TV 蓋不到的地方**：TV（寬 `TV_WIDTH`）疊在 player（寬 `DVD_PLAYER_WIDTH`）頂上，player 比較寬，左右各露出一條沒被蓋住的頂面——通風孔就排在這條可見範圍裡，不是隨便找地方擺，擺錯地方會整排被 TV 蓋住看不到。
 - **橡膠腳沒有真的墊高機身**：機身底部沿用原本 `y = 0` 貼地的邏輯不動，腳只是往內縮一點貼在底角、y 範圍跟機身底部同一個基準，不是真的把整組往上抬——抬高的話 `TV_POSITION`（算式是 `DVD_PLAYER_HEIGHT` 的倍數）也要跟著調，這輪沒有動這條，只做純視覺的腳。
 
+</details>
+
+### 已完成：Blender pass
+
+TV / DVD player / DVD / DVD case 全部換成 Blender 匯出的真實模型（`blender-project/`，各自有 `notes.md` 記錄建模細節/踩過的坑），不再是 three.js primitive blockout。原本列在「尚未處理」的 CRT 大屁股弧面、機身造型細節、材質細節都隨著這次換模型一併解決（Blender 端可以直接做出漸縮曲面/挖洞/雕刻，不用再疊層矇混）。
+
 ## 目前進度
 
-- [x] Phase 0：Vite + React 19 + R3F scaffold，Canvas/燈光/OrbitControls 跑通
-- [x] Phase 1：TV / DVD player / DVD 盒 blockout，pivot 階層照未來互動需求先搭好
-- [x] 光線調校：ambient 墊底 + key/fill 方向光 + 綠色 point light 點綴（candela 單位踩過一次坑，記在下面）
-- [x] DVD player tray 開闔（GSAP tween on click，含 cleanup）
-- [x] TV 旋鈕：**點擊式**切頁（原本是拖曳，改成點一下轉一格，見下方決策說明）
-- [x] DVD 盒開闔＋選片（Step 3 前半 — hinge 動畫、`Project`/`PROJECTS` 資料層、`DVD.tsx` 碟片、開盒後排列可點擊的碟）
-- [x] DVD 盒改平放 TV 頂上（拿掉站立/傾斜那套姿態邏輯）
-- [x] 選片畫面：碟片飛到鏡頭前 + 場景燈光暗下去（`DVDSelector`，見上方架構決策）
-- [x] 碟片閒置自轉 + hover 轉正對鏡頭；碟片幾何體改成有洞（RingGeometry x2 + 開口 CylinderGeometry），正反面材質分開
-- [x] `DVDCase` 改成受控元件（`isOpen`/`onToggle` 由 `Experience` 統一管），選片關閉時盒子自動跟著關
-- [x] 點黑色背景（碟片以外的地方）也能關閉選片畫面（`DVDSelector` 內的隱形背板）
-- [ ] 選片後「插入 player」動畫（碟片飛進 DVD player、tray 收回）（Step 3 後半——**暫緩，做過一版效果不對已 revert，見下方「下一步」**）
-- [ ] `alert` 佔位換成真的「TV 換內容」邏輯——依賴螢幕貼圖系統（Phase 2）先做完
-- [ ] 螢幕貼圖系統（頻道/項目預覽貼圖 + 切換）
-- [ ] 全螢幕 DOM overlay（鏡頭 dolly-in + 貼圖淡出 + 真實履歷內容）
-- [x] DVD player 造型細節：前面板按鈕、LED 顯示幕、tray 邊框、頂部通風孔、橡膠腳（見上方架構決策）
-- [ ] TV 機身造型細節（bezel、通風孔、支撐腳、天線——跟 DVD player 同一批被提出，這輪先跳過只做 player）
-- [ ] 材質細節（顏色/粗糙度/反光都還很陽春，目前是單色 `meshStandardMaterial`）
-- [ ] 背景/環境（地板+純色背景，還沒有房間感或環境反射）
-- [ ] 燈光氛圍（目前是功能性調校，夠亮不過曝，還沒往氛圍/風格化打光調）
+核心體驗已經全部打通、可以從頭玩到尾。已完成：
+
+- [x] Vite + React 19 + R3F scaffold → Blender 模型 pass：TV / DVD player / DVD / DVD case 全部換成 Blender 匯出的真實模型（不再是 primitive blockout，細節見上方「已完成：Blender pass」跟 `blender-project/` 各自的 notes.md）
+- [x] 燈光/材質：Blender 端直接做材質（不再是單色 `meshStandardMaterial`），場景燈光功能性調校完成（candela 單位踩過的坑記在下面）
+- [x] DVD player tray 開闔、TV 旋鈕點擊式切頁
+- [x] DVD 盒開闔 + 選片：單一光碟設計（見上方「已作廢：選片畫面...」），開盒運鏡到盒子特寫、點光碟放進 player、再點一次 case 關闔蓋子
+- [x] 選片後「插入 player」動畫：兩段式（邊飛邊翻正→放下），繞過 TV 機身，不會穿模
+- [x] 螢幕內容系統：3D 場景小 canvas 貼圖 + 全螢幕 DOM 疊層雙軌，共用 `TerminalFrame` 黑白像素終端機視覺（Undertale 風格）
+- [x] 履歷三頁（簡介/技能/經歷）+ 作品三頻道，內容資料改 JSON 跟程式碼分開放
+- [x] 履歷頁進場動畫：打字機（含點擊跳過）、技能血條填滿、經歷逐筆浮現，都是純 CSS + 一個自己寫的 hook，沒引入動畫套件
+- [x] 光碟標籤/盒子封面可以貼真實圖片（`useOptionalTexture`，有圖才 clone 材質換貼圖，沒有就用 Blender 原本烤好的材質）
+
+尚未處理（下面「下一步」有排優先順序建議）：
+
 - [ ] 視覺收尾：HDRI 環境、bloom 後製
-- [ ] Blender 評估/精修 pass（CRT 大屁股是目前唯一已知一定要處理的項目）
+- [ ] 背景/環境：地板 + 純色背景，還沒有房間感或環境反射
+- [ ] 燈光氛圍：目前是功能性調校（夠亮不過曝），還沒往氛圍/風格化打光調
+- [ ] 履歷/作品內容：目前 JSON 裡除了使用者自己的履歷文字之外，作品集三筆都還是 placeholder（只有 `project-1` 有真圖/連結）
 
 ## 踩過的坑（值得記住）
 
@@ -113,8 +142,9 @@ TV / DVD player / DVD 盒的尺寸都是「真實世界參考尺寸 × 1.2（展
 
 ## 下一步
 
-**Step 3 後半（選片後飛進 DVD player）先暫緩**——做過一版，效果不對（碟片站著沒躺平）又出過 bug（`alert` 觸發兩次），使用者判斷「目前問題很多、太醜」，整段先用 `git revert --no-commit` 退掉，之後要重新設計再做，不是現在這個做法的延伸。
+核心互動流程已經做完，剩下的都是「收尾/內容」性質，不影響能不能玩，哪一塊先做看使用者想先看到什麼效果，不要自己猜方向。可考慮的優先順序（純建議，非定案）：
 
-進入**模型、背景等細節化處理**階段。DVD player 造型細節這輪先做完了（見上方架構決策）。接下來還沒做的：TV 機身造型細節（bezel/通風孔/支撐腳/天線）、材質、背景/環境、燈光氛圍——哪一塊先做待使用者指示，不要自己猜方向。
-
-（旋鈕的 `pageCount` 不用等——選片是直接點碟片，旋鈕全程跟 DVD 無關，只管 4 個固定個人頁面，這條已經做完了。）
+1. **補完作品集內容**——目前 `PROJECTS` 只有第一筆有真圖/連結，另外兩筆還是 placeholder，這塊直接影響「這個網站能不能拿去投遞」，優先度可能最高
+2. **視覺氛圍收尾**——HDRI 環境、bloom、燈光氛圍調整，這三項通常要一起看效果、互相牽動，適合排在同一輪處理
+3. **背景/環境**——地板 + 純色背景目前沒有房間感，跟氛圍收尾那輪一起做比較有效率（背景色調也會影響燈光怎麼調）
+4. 更細的東西（如果上面都做完還有餘力）：RWD/手機版適配目前完全沒驗證過、`vite build` 產出的單一 chunk 超過 500KB 警告（見 build log）還沒處理（code-splitting）
