@@ -46,9 +46,14 @@ import { PROJECTS } from '@/data/projects'
 import type { Project } from '@/cores/types/project'
 import type { ScreenPage } from '@/data/screenPages'
 import type { ScreenPhase } from '@/cores/types/screenPhase'
+import type { SceneTuning } from '@/cores/types/sceneTuning'
 
-// 場景燈光的基準亮度——選片畫面開啟時，這幾顆燈會一起乘上 SCENE_DIM_FACTOR
-// 暗下去，只留選片專用的那顆燈亮著，做出「背景變黑、碟片浮現」的效果。
+// 選片畫面開啟時，ambient/key/fill/accent/rim 這幾顆燈會一起乘上
+// SCENE_DIM_FACTOR 暗下去，只留選片專用的那顆燈亮著，做出「背景變黑、
+// 碟片浮現」的效果——這幾顆燈的基準強度/顏色/位置現在是外部傳進來的
+// `tuning` prop（預設值 `DEFAULT_SCENE_TUNING`，見
+// cores/const/sceneTuning.ts），開發模式下可以用 LightingControls.tsx
+// 的 leva 面板即時覆寫，不用改程式碼重新整理頁面。
 //
 // 整體配色走「暗房裡看電視」的調子：主光源刻意調暖（像一盞立燈），背後
 // 的點綴光改冷色（像窗外透進來的月光/街燈），冷暖對比讓場景在昏暗中還是
@@ -60,13 +65,11 @@ import type { ScreenPhase } from '@/cores/types/screenPhase'
 // 清楚」（使用者拿一個暗色系但物件細節都看得很清楚的參考網站對比）。配色
 // 維持不變，只把每個光源的強度整體調高一截，尤其是主光源跟補光——暗色系
 // 的重點是背景/陰影夠暗、對比夠強，不是把物件本身也一起悶暗。
-const AMBIENT_BASE_INTENSITY = 0.45
-const KEY_LIGHT_BASE_INTENSITY = 1.6
-const FILL_LIGHT_BASE_INTENSITY = 0.6
-const ACCENT_LIGHT_BASE_INTENSITY = 4
 const SELECTOR_LIGHT_INTENSITY = 1.5
 
 interface ExperienceProps {
+  // 場景燈光/霧/背景的可調參數——見上面的說明跟 cores/types/sceneTuning.ts。
+  tuning: SceneTuning
   phase: ScreenPhase
   onPhaseChange: (phase: ScreenPhase) => void
   resumePageCount: number
@@ -93,6 +96,7 @@ interface ExperienceProps {
 }
 
 export function Experience({
+  tuning,
   phase,
   onPhaseChange,
   resumePageCount,
@@ -114,6 +118,7 @@ export function Experience({
   const keyLightRef = useRef<DirectionalLight>(null)
   const fillLightRef = useRef<DirectionalLight>(null)
   const accentLightRef = useRef<PointLight>(null)
+  const rimLightRef = useRef<DirectionalLight>(null)
   const selectorLightRef = useRef<PointLight>(null)
   // DVDPlayer 掛載後回報自己的 tray Object3D——DVDSelector 放片動畫最後
   // 一段要把碟片 attach 到這個物件底下，讓碟片能跟著 tray 關閉的動畫一起
@@ -226,12 +231,13 @@ export function Experience({
   }, [isDvdSelectorOpen, phase, camera, controls])
 
   useEffect(() => {
-    const lights = [ambientRef.current, keyLightRef.current, fillLightRef.current, accentLightRef.current]
+    const lights = [ambientRef.current, keyLightRef.current, fillLightRef.current, accentLightRef.current, rimLightRef.current]
     const bases = [
-      AMBIENT_BASE_INTENSITY,
-      KEY_LIGHT_BASE_INTENSITY,
-      FILL_LIGHT_BASE_INTENSITY,
-      ACCENT_LIGHT_BASE_INTENSITY,
+      tuning.ambient.intensity,
+      tuning.key.intensity,
+      tuning.fill.intensity,
+      tuning.accent.intensity,
+      tuning.rim.intensity,
     ]
     const dimTarget = isDvdSelectorOpen ? SCENE_DIM_FACTOR : 1
 
@@ -261,7 +267,17 @@ export function Experience({
     // 解鎖。
     // oxlint-disable-next-line react/immutability
     if (controls) controls.enabled = !isDvdSelectorOpen && !isInserting && phase === 'idle'
-  }, [isDvdSelectorOpen, isInserting, controls, phase])
+  }, [
+    isDvdSelectorOpen,
+    isInserting,
+    controls,
+    phase,
+    tuning.ambient.intensity,
+    tuning.key.intensity,
+    tuning.fill.intensity,
+    tuning.accent.intensity,
+    tuning.rim.intensity,
+  ])
 
   // 螢幕流程的鏡頭運鏡/計時——每個 phase 進來的當下決定要不要動鏡頭、要
   // 等多久才進下一步，統一集中在這裡，MainScene 只負責存 phase 本身跟
@@ -441,20 +457,28 @@ export function Experience({
 
   return (
     <>
-      <color attach="background" args={['#0a0a0a']} />
+      <color attach="background" args={[tuning.background]} />
+
+      {/* 地板（6x6 平面）邊緣原本跟背景色是硬接的，看起來像一塊舞台紙景
+          蓋在全黑背景前面，不是真的房間——加淡淡的霧讓地板邊緣自然融進
+          背景。顏色跟背景色一致才不會在地板邊緣出現一圈「霧的顏色」；
+          near/far 抓在鏡頭可以拉到的最遠距離（ORBIT_MAX_DISTANCE）內側，
+          物件本身（TV/DVD 都貼近原點）离鏡頭再遠也不會被霧到，只有地板
+          真正邊緣那圈才會被吃掉。 */}
+      <fog attach="fog" args={[tuning.fog.color, tuning.fog.near, tuning.fog.far]} />
 
       {/* 整體墊底亮度——墊高最低亮度，陰影死角才不會死黑一片。壓低強度、
           調暖色溫，讓沒被主光/補光直接照到的角落是「暗房裡的餘光」，
           不是死黑，也不是大白天的平光。 */}
-      <ambientLight ref={ambientRef} intensity={AMBIENT_BASE_INTENSITY} color="#3a3226" />
+      <ambientLight ref={ambientRef} intensity={tuning.ambient.intensity} color={tuning.ambient.color} />
 
       {/* 主光源——從上方偏前打下來，唯一負責投影的光。調成暖色（像一盞
           立燈/檯燈），是整個場景裡最亮、最有存在感的光源。 */}
       <directionalLight
         ref={keyLightRef}
-        position={[0.6, 1.2, 0.8]}
-        intensity={KEY_LIGHT_BASE_INTENSITY}
-        color="#ffd9a8"
+        position={tuning.key.position}
+        intensity={tuning.key.intensity}
+        color={tuning.key.color}
         castShadow
       />
 
@@ -464,9 +488,9 @@ export function Experience({
           輪廓，不會搶主光源的暖色調。 */}
       <directionalLight
         ref={fillLightRef}
-        position={[0, 0.35, 1.2]}
-        intensity={FILL_LIGHT_BASE_INTENSITY}
-        color="#cfd8e8"
+        position={tuning.fill.position}
+        intensity={tuning.fill.intensity}
+        color={tuning.fill.color}
       />
 
       {/* 背後點綴——像窗外透進來的月光/街燈，冷色調跟主光源的暖色形成對比，
@@ -474,8 +498,13 @@ export function Experience({
           死黑。這個版本的 three.js 點光源用的是 candela 單位，數字要開得
           比方向光/環境光大很多才看得出來。（原本這裡是高飽和度螢光綠、
           強度開到 4，等於拿一顆綠色探照燈打整個場景，才是造成「泛綠光」
-          的原因——不是材質問題，見上面 ACCENT_LIGHT_BASE_INTENSITY 的說明。） */}
-      <pointLight ref={accentLightRef} position={[-0.6, 0.5, -0.4]} intensity={ACCENT_LIGHT_BASE_INTENSITY} color="#5aa9e6" />
+          的原因——不是材質問題。） */}
+      <pointLight ref={accentLightRef} position={tuning.accent.position} intensity={tuning.accent.intensity} color={tuning.accent.color} />
+
+      {/* 背後輪廓光——見上面燈光說明段落。位置在機身後上方（鏡頭在 +Z，
+          這裡刻意放 -Z），方向光不受距離衰減，邊緣亮度才會均勻，不會
+          因為 TV 比 DVD player 高就一邊亮一邊暗。 */}
+      <directionalLight ref={rimLightRef} position={tuning.rim.position} intensity={tuning.rim.intensity} color={tuning.rim.color} />
 
       {/* 選片專用燈——平常是 0，開盒特寫時才亮起來，讓其他光源暗下去後，
           躺在盒子裡的光碟還是看得清楚。位置是固定的（在盒子特寫鏡頭的
@@ -540,7 +569,7 @@ export function Experience({
 
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[6, 6]} />
-        <meshStandardMaterial color="#1a1a1a" />
+        <meshStandardMaterial color={tuning.floorColor} />
       </mesh>
 
       <OrbitControls
