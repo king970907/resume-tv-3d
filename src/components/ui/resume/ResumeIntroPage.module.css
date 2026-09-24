@@ -5,6 +5,11 @@
   height: 100%;
 }
 
+.layout[data-skippable] {
+  /* 打字機還在跑的時候，點畫面任何地方都能跳過——遊標改手指提示可以點。 */
+  cursor: pointer;
+}
+
 .avatarCol {
   flex-shrink: 0;
   display: flex;
@@ -70,7 +75,7 @@
   margin: 0;
   padding-left: 16px;
   font-family: var(--font-retro);
-  font-size: clamp(14px, 2.2vw, 24px);
+  font-size: clamp(14px, 2.2vw, 18px);
   line-height: 1.5;
   color: #cfd2c6;
   max-width: 60ch;

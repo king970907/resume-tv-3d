@@ -9,10 +9,12 @@ const TYPEWRITER_MS_PER_CHAR = 18
 
 // CH 01——個人簡介。放在 TerminalFrame 的缺角對話框裡（見 TerminalFrame.tsx）。
 export function ResumeIntroPage() {
-  const { displayed, done } = useTypewriter(RESUME_INTRO.bio, TYPEWRITER_MS_PER_CHAR)
+  const { displayed, done, skip } = useTypewriter(RESUME_INTRO.bio, TYPEWRITER_MS_PER_CHAR)
 
   return (
-    <div className={styles.layout}>
+    // 打完的內容再點一次沒有意義，只有還在跑的時候才接手勢——不然點完
+    // 之後在文字上點來點去，游標一直變成手指形狀會很奇怪。
+    <div className={styles.layout} onClick={done ? undefined : skip} data-skippable={done ? undefined : true}>
       <div className={styles.avatarCol}>
         <PixelAvatar />
         <span className={styles.caption}>guest.png</span>
