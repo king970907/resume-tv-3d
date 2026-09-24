@@ -58,11 +58,33 @@
 .segments {
   display: flex;
   gap: 4px;
+  /* 撐滿這一列剩下的寬度——原本每格是固定 px 寬度，SEGMENT_COUNT 固定
+     幾格之後右邊會空一大塊，改成 flex:1 讓整條血條跟著容器寬度縮放。 */
+  flex-grow: 1;
+  min-width: 0;
 }
 
 .segment {
-  width: clamp(10px, 1.6vw, 16px);
+  flex: 1;
+  min-width: 0;
   height: clamp(10px, 1.6vw, 16px);
   border: 2px solid #eef0e6;
   box-sizing: border-box;
+}
+
+.segment[data-filled] {
+  /* 只有「有填滿」的格子才做進場動畫，空格維持原本的外框樣式、直接
+     顯示，不用陪著一起播動畫——空格本來就沒有內容變化，播了反而只是
+     徒增等待時間。動畫開始前先讓格子隱形（scaleX(0)/opacity:0），跟
+     下面 keyframes 沒寫 from 是同一組值，動畫開始瞬間才不會跳一下。
+     animation-delay 由 ResumeSkillsPage.tsx 依格子索引算好，用 inline
+     style 帶進來，做出「一格一格填滿」的效果。 */
+  transform: scaleX(0);
+  transform-origin: left;
+  opacity: 0;
+  animation: fillSegment 0.25s ease-out forwards;
+}
+
+@keyframes fillSegment {
+  to { transform: scaleX(1); opacity: 1; }
 }

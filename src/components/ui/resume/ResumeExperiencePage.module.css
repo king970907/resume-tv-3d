@@ -20,6 +20,19 @@
 .entry {
   display: flex;
   gap: 5%;
+  /* 進場前先隱形往下 12px，animation-delay 由 ResumeExperiencePage.tsx
+     依索引算好帶進來（inline style），做出「一筆接一筆」由上往下冒出來
+     的效果，不是所有經歷一次全部出現。 */
+  opacity: 0;
+  transform: translateY(12px);
+  animation: entryReveal 0.4s ease-out forwards;
+}
+
+@keyframes entryReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .rail {
@@ -46,7 +59,7 @@
 
 .body {
   flex-grow: 1;
-  padding-bottom: 7%;
+  padding-bottom: 3%;
 }
 
 .dates {
@@ -67,7 +80,7 @@
 .desc {
   margin: 0;
   font-family: var(--font-retro);
-  font-size: clamp(14px, 2vw, 22px);
+  font-size: clamp(14px, 2vw, 18px);
   line-height: 1.4;
   color: #cfd2c6;
   max-width: 60ch;

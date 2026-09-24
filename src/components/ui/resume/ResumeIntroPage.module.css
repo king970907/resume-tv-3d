@@ -68,10 +68,24 @@
 
 .bio {
   margin: 0;
-  padding-left: 24px;
+  padding-left: 16px;
   font-family: var(--font-retro);
   font-size: clamp(14px, 2.2vw, 24px);
   line-height: 1.5;
   color: #cfd2c6;
-  max-width: 46ch;
+  max-width: 60ch;
+  /* bio 內容用 \n\n 分段——一般 <p> 會把換行吃掉擠成一行，pre-line 保留
+     換行同時還是讓長句自動換行，兩種需求都要。 */
+  white-space: pre-line;
+}
+
+.cursor {
+  /* 打字機效果跑到一半時的閃爍游標，跑完就不渲染這個 span 了（見
+     ResumeIntroPage.tsx 的 done 判斷）。 */
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
