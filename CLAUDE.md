@@ -30,21 +30,32 @@ current progress, decision log, and what's next.
 The TV screen mesh shows a **texture**, not live DOM. Two states only:
 
 1. **In-scene**: screen material's texture is a static preview image/canvas
-   per channel or project. Switching channels swaps the texture. This keeps
+   per résumé page or project. Switching pages swaps the texture. This keeps
    the screen correctly lit/reflective/bloomed as a real 3D surface.
-2. **Fullscreen overlay**: clicking a channel dollies the camera in, fades
+2. **Fullscreen overlay**: clicking the screen dollies the camera in, fades
    the 3D screen texture out, and mounts a `position: fixed` DOM overlay
-   (`src/components/overlay/`) with the actual resume UI — plain React +
+   (`src/components/ui/`) with the actual resume/project UI — plain React +
    CSS, full interactivity, zero 3D involved. Closing reverses the sequence.
 
 Do not reach for `drei <Html transform>` or DOM→canvas render-to-texture for
 the resume content — both were considered and rejected in favor of this
 split (see project chat history / commit messages for the reasoning).
 
+Both the fullscreen overlay and its small in-scene texture counterpart share
+a black & white pixel + terminal ("Undertale-style") visual system —
+`src/components/ui/terminal/TerminalFrame.tsx` is the shared frame both the
+résumé pages (`ui/resume/`) and project pages (`ui/projects/ProjectPage.tsx`)
+render inside.
+
 ## Data Layer
 
-- `src/data/channels.ts` — `CHANNELS: Channel[]`
-- `src/data/projects.ts` — `PROJECTS: Project[]` (one per DVD)
+- `src/data/projects.ts` — `PROJECTS: Project[]` (the scene only ever holds
+  `PROJECTS[0]` as the single interactive DVD — see Phase Plan)
+- `src/data/resumeContent.ts` — résumé page content (intro/skills/experience)
+- `src/data/screenPages.ts` — `ScreenPage` shape + `RESUME_PAGES`; résumé
+  pages are authored directly as `ScreenPage`s, while `projectToScreenPage()`
+  converts a `Project` into the same shape on the fly (résumé and project
+  content are separate data, but share one rendering shape)
 - No API calls — everything is static
 
 ## Cores
@@ -64,7 +75,9 @@ split (see project chat history / commit messages for the reasoning).
   - `src/components/scene/` — Canvas, camera, lights, controls only
   - `src/components/tv/` — TV mesh + screen material/texture logic
   - `src/components/dvd/` — DVDPlayer/DVD/DVDCase meshes
-  - `src/components/overlay/` — fullscreen DOM overlay, no 3D imports here
+  - `src/components/ui/` — fullscreen DOM overlay + its pieces, no 3D
+    imports here: `terminal/` (shared `TerminalFrame`), `resume/`,
+    `projects/`, plus the intro/play-hint overlays at the top level
 
 ## TypeScript / React conventions (carried over from My-RetroTV)
 
@@ -82,10 +95,14 @@ Status detail and the running decision log live in [PLANNING.md](./PLANNING.md) 
 
 0. ✅ Scaffold — Canvas, lights, OrbitControls, one rotating placeholder mesh
 1. ✅ Blockout — TV / DVDPlayer / DVD as primitive geometry, roughly to scale
-2. Screen content — wire up texture-preview + fullscreen-overlay split above
-3. Interaction — in progress: DVD player tray open/close ✅, TV knob drag (next), DVD case open + select
+2. ✅ Screen content — texture-preview + fullscreen-overlay split above, résumé
+   (3 pages) and project (3 channels) content both wired up through the
+   shared `TerminalFrame` pixel/terminal system
+3. ✅ Interaction — DVD player tray open/close, TV knob click-to-page, DVD
+   case open/select/close (single interactive disc, see PLANNING.md)
 4. Polish — HDRI environment, bloom on the CRT glow, shadows, material detail
-5. (optional) Blender pass — swap blockout meshes for Blender-authored GLBs (CRT rear taper is the one known must-do here)
+5. ✅ Blender pass — TV / DVDPlayer / DVD / DVDCase are all Blender-authored
+   GLBs now (see `blender-project/`), not primitive blockout meshes
 
 ## Git
 

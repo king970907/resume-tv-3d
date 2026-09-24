@@ -11,14 +11,16 @@ look with CSS transforms. This one uses real WebGL meshes, lighting, and a camer
 
 ```
 3D Scene (Canvas)
-├── RetroTV        — CRT television, screen shows a texture preview per channel
-├── DVDPlayer       — accepts a DVD, "plays" it to open a project
-└── DVDCase         — holds the DVD(s) representing portfolio projects
+├── RetroTV        — CRT television, screen shows a texture preview per page
+├── DVDPlayer       — accepts the DVD, "plays" it to open the project channels
+└── DVDCase         — holds the single interactive DVD representing the
+                       portfolio projects (opens, disc can be selected/inserted)
 
 Fullscreen DOM Overlay
 └── Mounted on click: camera dollies into the screen, the 3D texture preview
-    fades out, and the real resume UI (plain React + CSS) takes over —
-    fully interactive, no 3D involved while it's open.
+    fades out, and the real resume/project UI (plain React + CSS, black &
+    white pixel + terminal look) takes over — fully interactive, no 3D
+    involved while it's open.
 ```
 
 The screen is never rendered as live DOM-inside-3D — see [CLAUDE.md](./CLAUDE.md)
@@ -50,8 +52,10 @@ src/
 │   ├── scene/        — Canvas wrapper, lights, camera, orbit controls
 │   ├── tv/            — RetroTV mesh, screen material/texture logic
 │   ├── dvd/            — DVDPlayer, DVD, DVDCase meshes
-│   └── overlay/        — Fullscreen DOM overlay shown when a channel is opened
-├── data/               — channels.ts, projects.ts (static content)
+│   └── ui/             — Fullscreen DOM overlay shown when the screen is
+│                          opened: terminal/ (shared TerminalFrame), resume/,
+│                          projects/, plus the intro/play-hint overlays
+├── data/               — projects.ts, resumeContent.ts, screenPages.ts (static content)
 ├── cores/
 │   ├── types/          — shared TS interfaces
 │   └── const/           — shared tuning constants
@@ -63,6 +67,10 @@ src/
 
 ## Status
 
-Phase 0 (scaffold) done — Canvas renders, lit, orbit-controllable, one rotating
-placeholder mesh standing in for the TV. See [CLAUDE.md](./CLAUDE.md) for the
-phase plan.
+Core experience is built and playable end to end: TV / DVD player / DVD /
+DVD case are all Blender-authored models, the case opens and the disc can be
+selected and inserted into the player, and both the résumé (3 pages) and
+project (3 channels) content render through a shared black & white pixel +
+terminal ("Undertale-style") overlay. Remaining work is polish — material
+detail, lighting mood, HDRI/bloom. See [CLAUDE.md](./CLAUDE.md) for the phase
+plan and [PLANNING.md](./PLANNING.md) for the detailed progress/decision log.
