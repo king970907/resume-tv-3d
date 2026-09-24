@@ -8,17 +8,17 @@ interface ProjectPageProps {
 // 作品頁內容——放在 TerminalFrame 的缺角對話框裡（見 TerminalFrame.tsx）。
 // 縮圖佔滿上半部（使用者確認過的比例，見對話紀錄裡的 Artifact 切版），
 // 下半部固定高度放標題/技術標籤/簡介/連結按鈕。
+//
+// 這裡固定顯示像素風佔位方塊，不用 project.thumbnail——那個欄位是給
+// 3D 場景的 DVD 光碟標籤/盒子封面用的（見 DVD.tsx/DVDCase.tsx），跟
+// 這個 2D 作品頁的縮圖是兩件事，使用者確認過不要共用同一張圖。
 export function ProjectPage({ project }: ProjectPageProps) {
   return (
     <div className={styles.layout}>
       <div className={styles.thumbnailWrap}>
-        {project.thumbnail ? (
-          <img src={project.thumbnail} alt="" className={styles.thumbnailImage} />
-        ) : (
-          <div className={styles.thumbnailPlaceholder}>
-            <span className={styles.thumbnailLabel}>[ SCREENSHOT ]</span>
-          </div>
-        )}
+        <div className={styles.thumbnailPlaceholder}>
+          <span className={styles.thumbnailLabel}>[ SCREENSHOT ]</span>
+        </div>
       </div>
 
       <div className={styles.footer}>
