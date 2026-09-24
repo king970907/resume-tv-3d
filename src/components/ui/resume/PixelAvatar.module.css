@@ -1,11 +1,10 @@
-.grid {
-  display: grid;
-  grid-template-columns: repeat(16, 8px);
-  grid-template-rows: repeat(16, 8px);
+.image {
+  /* 原圖是全身像（291x480），不是原本佔位剪影的頭肩比例——用寬度撐開、
+     高度自動維持比例，不強制塞進舊的正方形頭像框。 */
+  width: clamp(90px, 11vw, 150px);
+  height: auto;
+  /* 像素圖縮放預設的雙線性模糊會把邊緣糊掉，這個專案其他像素圖
+     （.soul 圖示）都用這個屬性保持縮放後邊緣清晰，這裡跟著一致。 */
+  image-rendering: pixelated;
   flex-shrink: 0;
-}
-
-.cell {
-  width: 8px;
-  height: 8px;
 }

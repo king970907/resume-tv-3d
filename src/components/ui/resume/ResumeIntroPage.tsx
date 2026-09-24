@@ -17,7 +17,7 @@ export function ResumeIntroPage() {
     <div className={styles.layout} onClick={done ? undefined : skip} data-skippable={done ? undefined : true}>
       <div className={styles.avatarCol}>
         <PixelAvatar />
-        <span className={styles.caption}>guest.png</span>
+        <span className={styles.caption}>avatar.png</span>
       </div>
 
       <div className={styles.textCol}>
