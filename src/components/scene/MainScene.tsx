@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber'
+import { useProgress } from '@react-three/drei'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Experience } from './Experience'
 import { IntroOverlay } from '@/components/ui/IntroOverlay'
@@ -45,6 +46,33 @@ export function MainScene() {
   // 下面的 <LightingControls> 即時覆寫（見它的說明）。
   const [tuning, setTuning] = useState<SceneTuning>(DEFAULT_SCENE_TUNING)
   const [phase, setPhase] = useState<ScreenPhase>('intro')
+  // Blender 模型（尤其 tv.glb ~8MB）在慢網路下可能要好幾秒才載完，這段
+  // 期間 <Canvas> 底下的 <Experience> 其實還沒掛載（被 <Suspense> 擋住），
+  // IntroOverlay 背後理應透出來的 3D 場景那時候只是一片黑——如果使用者
+  // 這時候點畫面，phase 會直接跳到 'focusing'，疊層淡出後露出的還是那片
+  // 黑（Experience 都還沒掛載，連 background 顏色都還沒設定），畫面就會
+  // 卡死看起來像當掉。用 drei 的 useProgress（讀 three.js 全域
+  // LoadingManager 進度，跟 R3F reconciler 無關，Canvas 外面呼叫也沒問題）
+  // 擋住這個情境：使用者點了但模型還沒載完，先把意圖記下來
+  // （pendingContinue），真正的 setPhase('focusing') 等模型真的載完
+  // （progress 到 100）才觸發，不會遺失這次點擊，也不會提早露出還沒
+  // 準備好的黑畫面。
+  const assetsProgress = useProgress((state) => state.progress)
+  const assetsReady = assetsProgress >= 100
+  const [pendingContinue, setPendingContinue] = useState(false)
+
+  useEffect(() => {
+    if (pendingContinue && assetsReady) {
+      // 這裡的 setState 是在「跟外部系統同步」（three.js LoadingManager
+      // 進度跨過 100% 這個外部事件），不是 render 期間就能算出來的衍生
+      // 值——phase 是涵蓋很多其他轉場的通用狀態機，沒辦法單純從這兩個
+      // flag 推導，一定要在對的時間點呼叫 setPhase 觸發轉場，effect 是
+      // 正確的做法。
+      // oxlint-disable-next-line react/set-state-in-effect
+      setPhase('focusing')
+      setPendingContinue(false)
+    }
+  }, [pendingContinue, assetsReady])
   // 履歷（頻道旋鈕轉台）目前瀏覽到第幾頁。
   const [resumePageIndex, setResumePageIndex] = useState(0)
   // 作品集（音量旋鈕轉台，只有播放中才能轉）目前瀏覽到第幾個 Project——
@@ -158,7 +186,8 @@ export function MainScene() {
       {(phase === 'intro' || phase === 'focusing') && (
         <IntroOverlay
           fadingOut={phase === 'focusing'}
-          onContinue={() => setPhase('focusing')}
+          isLoading={!assetsReady}
+          onContinue={() => setPendingContinue(true)}
         />
       )}
 
