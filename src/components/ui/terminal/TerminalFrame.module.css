@@ -66,6 +66,14 @@
 
 .box {
   flex-grow: 1;
+  /* flex item 預設 min-height 是 auto（＝內容的最小高度），不是 0——
+     沒有這行的話，.boxContent 裡的文字一長，這個 flex item 會被撐到
+     比 flex-grow 該分配的空間還高，連帶把 .frame（靠 aspect-ratio 鎖
+     高度）一起撐高，下面的 .navRow 按鈕就會被擠出畫面外點不到。設成 0
+     才會讓 .boxContent 的 overflow:auto 真的生效、在固定高度裡內部
+     捲動，不是撐爆外層。ProjectPage.module.css 的 .thumbnailWrap 也是
+     同樣的手法，這裡補上讓 TerminalFrame 這個共用外殼本身也一致。 */
+  min-height: 0;
   margin: 0.6% 4.4% 2%;
   position: relative;
 }
@@ -92,8 +100,19 @@
   z-index: 1;
   height: 100%;
   box-sizing: border-box;
-  padding: 4.4% 4.8%;
+  /* 上下留白調大一點——內容長到需要捲動時，文字捲到頂/底原本只留
+     4.4%（手機上換算沒幾個 px），看起來像貼著邊框。這個 padding 只解決
+     「捲到頂/捲到底」這兩個極端位置的留白，捲到中間時本來就會有文字
+     貼齊可視區邊緣——這是捲動容器的必然現象（捲動本來就是把後面的內容
+     帶到最上緣），加多少 padding 都沒用，只能靠下面的漸層遮罩讓文字
+     「淡出」而不是被硬生生切斷，兩種留白問題要分開解。 */
+  padding: 7% 4.8%;
   overflow: auto;
+  /* 捲動中途文字貼齊上下緣時，用漸層遮罩做出「淡出」效果，不要讓文字
+     被硬邊框切一半——上下各抓一小段做 alpha 漸變，中間維持全不透明。
+     -webkit- 前綴是因為 Safari 目前還是只認前綴版本的 mask-image。 */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
 }
 
 .continueHint {

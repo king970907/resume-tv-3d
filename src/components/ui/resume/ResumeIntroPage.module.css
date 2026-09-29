@@ -2,7 +2,13 @@
   display: flex;
   gap: 5%;
   align-items: flex-start;
-  height: 100%;
+  /* 不能用 height:100%——這裡不需要撐滿容器（沒有子元素靠 flex-grow
+     依賴這個高度），內容一長，固定 100% 高度反而會讓 TerminalFrame 的
+     .boxContent（overflow:auto 捲動區）算 scrollHeight 時漏算
+     padding-bottom，捲到底文字會直接貼齊邊框，見瀏覽器實測：
+     height:100% 時捲到底的間距是 0，改 auto 之後才會正確留出
+     padding-bottom 的空間。 */
+  height: auto;
 }
 
 .layout[data-skippable] {

@@ -2,7 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: 4%;
-  height: 100%;
+  /* 不能用 height:100%——見 ResumeIntroPage.module.css 的說明，同一套
+     TerminalFrame 共用容器，同樣的坑。 */
+  height: auto;
 }
 
 .prompt {
