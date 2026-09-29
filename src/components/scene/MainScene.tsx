@@ -186,7 +186,7 @@ export function MainScene() {
       {(phase === 'intro' || phase === 'focusing') && (
         <IntroOverlay
           fadingOut={phase === 'focusing'}
-          isLoading={!assetsReady}
+          progress={assetsProgress}
           onContinue={() => setPendingContinue(true)}
         />
       )}

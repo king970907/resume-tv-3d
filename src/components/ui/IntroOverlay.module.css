@@ -44,3 +44,25 @@
   color: #cfd8e8;
   opacity: 0.85;
 }
+
+.progressBar {
+  /* 跟履歷技能頁的血條（ResumeSkillsPage.module.css 的 .segments/
+     .segment）同一套像素風格——固定寬度置中，不像技能頁那樣撐滿容器，
+     這裡只是開場畫面正中央的一個小元件。 */
+  margin: 18px auto 0;
+  display: flex;
+  gap: 4px;
+  width: min(70vw, 280px);
+}
+
+.progressSegment {
+  flex: 1;
+  min-width: 0;
+  height: 12px;
+  border: 2px solid #eef0e6;
+  box-sizing: border-box;
+}
+
+.progressSegment[data-filled] {
+  background: #eef0e6;
+}
