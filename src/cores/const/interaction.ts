@@ -23,7 +23,7 @@ export const DVD_TRAY_ANIM_DURATION = 0.5 // 秒
 // 預設4格（每次點擊轉90°：0°→90°→180°→270°→繞回0°）——先讓旋鈕機構本身
 // 動起來，指標刻度看得出每次點擊的效果。等 Step 3／Phase 2 接上真實資料
 // （個人頁面或插入的 DVD 作品數，見 src/data/projects.ts 的 PROJECTS，目前
-// 3筆）再把這裡換成從資料算出來的實際頁數，不用動旋鈕本身的邏輯。
+// 1筆）再把這裡換成從資料算出來的實際頁數，不用動旋鈕本身的邏輯。
 export const KNOB_DEFAULT_PAGE_COUNT = 4
 export const KNOB_STEP_DURATION = 0.35 // 秒，每按一次的轉動動畫時間
 

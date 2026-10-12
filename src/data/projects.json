@@ -1,22 +1,11 @@
 [
   {
     "id": "project-1",
-    "title": "Project One",
-    "description": "Placeholder project description.",
-    "tech": ["React", "TypeScript"],
+    "title": "PAZZO / UR Living",
+    "description": "電商品牌 PAZZO、UR Living 等。負責程式碼重構、以 Submodule 管理共用函式與元件、優化 LCP。",
+    "tech": ["Vue 3"],
+    "screenshot": "/thumbnails/pazzo.webp",
     "thumbnail": "/thumbnails/project-1.png",
     "caseCover": "/thumbnails/case-1.png"
-  },
-  {
-    "id": "project-2",
-    "title": "Project Two",
-    "description": "Placeholder project description.",
-    "tech": ["Three.js"]
-  },
-  {
-    "id": "project-3",
-    "title": "Project Three",
-    "description": "Placeholder project description.",
-    "tech": ["Node.js"]
   }
 ]

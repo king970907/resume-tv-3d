@@ -21,7 +21,10 @@
 
 .thumbnailImage {
   object-fit: cover;
-  image-rendering: pixelated;
+  /* 網站截圖是寫實圖片、不是像素圖，縮小時用預設平滑縮放——設
+     pixelated 會變最近鄰取樣，縮小後鋸齒很明顯。截圖的重點資訊（品牌
+     名稱、導覽列）都在上半部，裁切時從頂部對齊。 */
+  object-position: top center;
 }
 
 .thumbnailPlaceholder {
