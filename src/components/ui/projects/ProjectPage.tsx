@@ -1,8 +1,16 @@
 import type { Project } from '@/cores/types/project'
+import { PROJECTS } from '@/data/projects'
 import styles from './ProjectPage.module.css'
 
 interface ProjectPageProps {
   project: Project
+}
+
+// 模組載入時就把所有作品截圖預載進瀏覽器快取。不預載的話，第一次切到另一
+// 個作品時 <img> 的 src 才開始下載，圖還沒到之前畫面會短暫停在上一張
+// 圖（使用者回報「第一次切換瞬間圖片沒換過去」）；第二次之後有快取就不會。
+for (const { screenshot } of PROJECTS) {
+  if (screenshot) new Image().src = screenshot
 }
 
 // 作品頁內容——放在 TerminalFrame 的缺角對話框裡（見 TerminalFrame.tsx）。
@@ -18,7 +26,7 @@ export function ProjectPage({ project }: ProjectPageProps) {
     <div className={styles.layout}>
       <div className={styles.thumbnailWrap}>
         {project.screenshot ? (
-          <img src={project.screenshot} alt={project.title} className={styles.thumbnailImage} />
+          <img key={project.id} src={project.screenshot} alt={project.title} className={styles.thumbnailImage} />
         ) : (
           <div className={styles.thumbnailPlaceholder}>
             <span className={styles.thumbnailLabel}>[ SCREENSHOT ]</span>

@@ -115,6 +115,21 @@
   mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
 }
 
+/* 手機直式：寬度只剩 92vw，跟 CRT 螢幕同比例（512:458）換算出來的高度
+   很矮，內容（尤其作品頁截圖+描述）塞不下，下緣文字幾乎貼著邊框。改成
+   直式比例讓外框變高，上下留白也用固定 px（百分比是相對寬度算的，手機
+   寬度小，換算出來很薄），下方多留一些給右下角的 ▼ 提示圖示。 */
+@media (max-width: 600px) {
+  .frame {
+    aspect-ratio: 3 / 4;
+    max-height: 88vh;
+  }
+
+  .boxContent {
+    padding: 32px 4.8% 44px;
+  }
+}
+
 .continueHint {
   position: absolute;
   right: 18px;
