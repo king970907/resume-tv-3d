@@ -3,9 +3,23 @@
     "id": "project-1",
     "title": "PAZZO / UR Living",
     "description": "電商品牌 PAZZO、UR Living 等。負責程式碼重構、以 Submodule 管理共用函式與元件、優化 LCP。",
-    "tech": ["Vue 3"],
+    "tech": [
+      "Vue 3"
+    ],
     "screenshot": "/thumbnails/pazzo.webp",
     "thumbnail": "/thumbnails/project-1.png",
     "caseCover": "/thumbnails/case-1.png"
+  },
+  {
+    "id": "project-2",
+    "title": "PerfTree",
+    "description": "Codebase 依賴圖智能分析工具。掃描專案原始碼建立依賴關係圖，自動偵測循環依賴、熱點節點、高扇出與孤兒檔案，並標出影響 LCP／CLS 的效能反模式；結果以 Canvas 互動視覺化呈現，可點選節點查看上下游。",
+    "tech": [
+      "Vue 3",
+      "TypeScript",
+      "Canvas",
+      "Node.js"
+    ],
+    "screenshot": "/thumbnails/perftree.jpg"
   }
 ]

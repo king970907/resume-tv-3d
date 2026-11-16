@@ -8,7 +8,9 @@
 .thumbnailWrap {
   position: relative;
   flex-grow: 1;
-  min-height: 0;
+  /* 不能設 0：手機上框很矮，描述文字一長就把截圖擠成一條細縫。給個最小
+     高度，空間不夠時整頁改由 TerminalFrame 的 .boxContent 內部捲動。 */
+  min-height: 140px;
 }
 
 .thumbnailImage,
