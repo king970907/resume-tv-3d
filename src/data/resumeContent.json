@@ -8,27 +8,60 @@
     {
       "name": "FRONTEND",
       "skills": [
-        { "name": "Vue / Nuxt", "level": 9 },
-        { "name": "React", "level": 8 },
-        { "name": "TypeScript", "level": 8 },
-        { "name": "Three.js", "level": 6 }
+        {
+          "name": "Vue / Nuxt",
+          "level": 9
+        },
+        {
+          "name": "React",
+          "level": 8
+        },
+        {
+          "name": "TypeScript",
+          "level": 8
+        },
+        {
+          "name": "Three.js",
+          "level": 6
+        }
       ]
     },
     {
       "name": "Backend",
       "skills": [
-        { "name": "Node", "level": 7 },
-        { "name": "PHP", "level": 6 },
-        { "name": "C#", "level": 6 }
+        {
+          "name": "Node",
+          "level": 7
+        },
+        {
+          "name": "PHP",
+          "level": 6
+        },
+        {
+          "name": "C#",
+          "level": 6
+        }
       ]
     },
     {
       "name": "DevOps / Others",
       "skills": [
-        { "name": "Git", "level": 9 },
-        { "name": "Docker", "level": 7 },
-        { "name": "CICD", "level": 7 },
-        { "name": "AI-assisted Development", "level": 8 }
+        {
+          "name": "Git",
+          "level": 9
+        },
+        {
+          "name": "Docker",
+          "level": 7
+        },
+        {
+          "name": "CICD",
+          "level": 7
+        },
+        {
+          "name": "AI-assisted Development",
+          "level": 8
+        }
       ]
     }
   ],
@@ -37,25 +70,49 @@
       "dates": "2026/03 — NOW",
       "role": "資深前端工程師",
       "company": "緯創軟體股份有限公司",
-      "description": "負責樹狀圖與關聯圖視覺化平台前/後台開發（全端），將 Dynatrace、OpenTelemetry 等 tracing 資料轉換為可互動的節點結構，協助團隊分析系統瓶頸。"
+      "description": "金融客戶大型系統平台開發，負責前端視覺化、Micro Frontend 架構及 Node.js 後端工具。",
+      "highlights": [
+        "追蹤視覺化平台：以 Canvas 開發樹狀圖與關聯圖，將 Dynatrace／Jaeger 等 tracing 資料轉為可互動節點結構，呈現服務呼叫關係與效能瓶頸",
+        "Micro Frontend：參與 Module Federation 架構設計與模組拆分，讓 3 個子系統可獨立開發與部署",
+        "後端 API 與工具：以 Node.js／Express 開發 RESTful API，並用 ExcelJS 開發 Excel → JSON 轉換工具",
+        "雲端部署：以 Docker 與 Google Cloud Run 部署服務，負責環境設定與跨系統串接",
+        "AI 導入開發流程：建立 SDD workflow 與 prompt 規範，整合 Figma、Azure DevOps、Playwright MCP，串起規格、UI 實作到 E2E 測試"
+      ]
     },
     {
       "dates": "2024/03 — 2026/03",
-      "role": "資深前端工程師",
+      "role": "前端工程師",
       "company": "美而快實業股份有限公司",
-      "description": "主導電商平台 Vue 2 → Vue 3 升級，處理相容性問題、重構核心模組並清理技術債"
+      "description": "台灣大型服飾電商集團，旗下多個女裝品牌、超過 200 萬會員。負責電商平台前端開發、架構升級與效能優化。",
+      "highlights": [
+        "Vue 3 升級：主導 Vue 2 → Vue 3，處理套件相容性問題、將核心模組改寫為 Composition API 並清理技術債",
+        "SSR 與 SEO：以 Nuxt.js 建置 SSR 專案，改善首次載入速度與搜尋引擎收錄",
+        "圖片載入優化：依裝置與螢幕尺寸載入對應解析度、改用 WebP、非首屏圖片延遲載入，改善 LCP",
+        "渲染效能優化：JavaScript 非同步載入，並為圖片與動態區塊預留版面空間，降低 CLS",
+        "工程化：導入 CI/CD 自動化部署、Vitest 單元測試與開發規範"
+      ]
     },
     {
       "dates": "2022/08 — 2024/03",
-      "role": "前端開發工程師",
+      "role": "前端工程師",
       "company": "普羅傑有限公司",
-      "description": "維護 jQuery / Bootstrap 舊系統，並逐步以 React 重構功能模組"
+      "description": "專注客製化網頁開發與人工智慧應用，打造高品質的行動裝置網頁體驗。",
+      "highlights": [
+        "維護 jQuery / Bootstrap 舊系統，並逐步以 Vue 2、Vue 3 重構功能模組",
+        "參與新產品從零到一開發，使用 Vue 3、Pinia、Vue Router 建立前端架構",
+        "整合 RESTful API 與 WebSocket，實作即時資料同步功能"
+      ]
     },
     {
       "dates": "2021/09 — 2022/08",
-      "role": "前端開發工程師",
+      "role": "前端工程師",
       "company": "翔豪顧問管理有限公司",
-      "description": "開發企業網站、活動頁與後台系統，負責 RWD 與互動功能實作"
+      "description": "小型接案型軟體公司，承接企業形象網站、小型電商、遊戲平台前台與後台聊天室等 Web 專案。",
+      "highlights": [
+        "開發企業網站、活動頁與後台系統，負責 RWD 與互動功能實作",
+        "使用 Vue 串接 Laravel API，並參與部分 Laravel / Node.js API 開發",
+        "同時支援多個專案，培養需求理解與時程管理能力"
+      ]
     }
   ]
 }

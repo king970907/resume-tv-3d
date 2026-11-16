@@ -26,6 +26,11 @@ export function ResumeExperiencePage() {
               <div className={styles.dates}>{job.dates}</div>
               <div className={styles.title}>{job.role} @ {job.company}</div>
               <p className={styles.desc}>{job.description}</p>
+              <ul className={styles.highlights}>
+                {job.highlights.map((highlight) => (
+                  <li key={highlight}>{highlight}</li>
+                ))}
+              </ul>
             </div>
           </div>
         ))}

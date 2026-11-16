@@ -9,6 +9,9 @@
 
 .prompt {
   flex-shrink: 0;
+  /* layout 的 gap 是百分比，在 height:auto 的容器裡算出來是 0，提示列會
+     貼著第一筆日期，這裡用固定間距補上。 */
+  margin-bottom: 14px;
   font-family: var(--font-retro);
   font-size: clamp(14px, 2vw, 22px);
   color: #9a9d90;
@@ -86,4 +89,31 @@
   line-height: 1.4;
   color: #cfd2c6;
   max-width: 60ch;
+}
+
+.highlights {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 60ch;
+}
+
+/* 用「>」當條列符號，呼應終端機提示符號風格，不用瀏覽器預設圓點。 */
+.highlights li {
+  position: relative;
+  padding-left: 1.2em;
+  font-family: var(--font-retro);
+  font-size: clamp(13px, 1.8vw, 17px);
+  line-height: 1.35;
+  color: #cfd2c6;
+}
+
+.highlights li::before {
+  content: '>';
+  position: absolute;
+  left: 0;
+  color: #9a9d90;
 }

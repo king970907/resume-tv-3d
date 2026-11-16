@@ -28,7 +28,10 @@ export interface ResumeJob {
   dates: string
   role: string
   company: string
+  // 一句話的公司/職務背景，顯示在標題下方。
   description: string
+  // 條列的主要工作成果，每項一行。
+  highlights: string[]
 }
 
 export const RESUME_INTRO: { name: string; role: string; bio: string } = resumeData.intro
