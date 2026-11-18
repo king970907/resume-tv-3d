@@ -131,6 +131,19 @@
   color: #cfd2c6;
 }
 
+.caret {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-size: 10px;
+  color: #9a9d90;
+}
+
+.save[data-open] .caret,
+.head:hover .caret {
+  color: var(--color-accent);
+}
+
 .detail {
   margin: 0 12px 10px 34px;
   padding-top: 8px;

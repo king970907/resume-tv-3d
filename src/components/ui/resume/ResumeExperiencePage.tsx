@@ -8,9 +8,10 @@ const ENTRY_STAGGER_MS = 180
 
 // CH 03——工作經歷。做成 Undertale 存檔畫面的卡片：每份工作一張，標題列
 // 是職稱＋日期，下面一行是公司；點一張才展開詳細內容，同時間只展開一張
-// （手風琴），不用像以前一次攤開所有條列、捲很長。預設展開最新一份。
+// （手風琴），不用像以前一次攤開所有條列、捲很長。預設全部收合，使用者
+// 自己挑要看哪一份。
 export function ResumeExperiencePage() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
     <div className={styles.layout}>
@@ -43,6 +44,8 @@ export function ResumeExperiencePage() {
                   <span className={styles.dates}>{job.dates}</span>
                 </span>
                 <span className={styles.company}>{job.company}</span>
+                {/* 提示這張卡可以點：收合是 ▶、展開是 ▼。 */}
+                <span className={styles.caret} aria-hidden="true">{isOpen ? '▼' : '▶'}</span>
               </button>
 
               {isOpen && (

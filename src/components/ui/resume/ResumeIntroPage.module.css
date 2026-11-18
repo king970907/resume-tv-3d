@@ -1,6 +1,6 @@
 .layout {
   display: flex;
-  gap: 5%;
+  gap: 4%;
   align-items: flex-start;
   /* 不能用 height:100%——這裡不需要撐滿容器（沒有子元素靠 flex-grow
      依賴這個高度），內容一長，固定 100% 高度反而會讓 TerminalFrame 的
@@ -19,10 +19,12 @@
 /* ── 左側名片 ── */
 .card {
   flex-shrink: 0;
-  width: clamp(150px, 26%, 220px);
+  /* 左側名片寬度：原本 26%/最大 220px，在平板寬度下「Vue · Nuxt」「金融系統」
+     都被擠到折行，加寬到約三分之一，並讓欄位值不折行。 */
+  width: clamp(190px, 34%, 280px);
   box-sizing: border-box;
   border: 3px solid #eef0e6;
-  padding: 12px 10px;
+  padding: 14px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -68,8 +70,8 @@
 
 .fact {
   display: grid;
-  grid-template-columns: 3em 1fr;
-  gap: 6px;
+  grid-template-columns: 2.6em 1fr;
+  gap: 8px;
   align-items: baseline;
 }
 
@@ -81,6 +83,7 @@
 
 .fact dd {
   margin: 0;
+  white-space: nowrap;
   font-family: var(--font-retro);
   font-size: clamp(14px, 1.8vw, 18px);
   color: #eef0e6;
