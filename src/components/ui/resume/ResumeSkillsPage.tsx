@@ -9,8 +9,9 @@ const SEGMENT_COUNT = 10
 const ROW_STAGGER_MS = 60
 const SEGMENT_STAGGER_MS = 25
 
-// CH 02——技能。等級用分段像素條（像 RPG 血條）表示，不用百分比數字，
-// 跟頁面整體的遊戲選單語感一致。
+// CH 02——技能。分類標題用強調色的「* 」開頭（Undertale 選單項目的寫法），
+// 每列技能是「名稱＋LV 數字＋分段像素條（像 RPG 血條）」，滑鼠移上去會出現
+// SOUL 游標、名稱變強調色，跟頁面整體的遊戲選單語感一致。
 export function ResumeSkillsPage() {
   let rowIndex = 0
 
@@ -21,15 +22,14 @@ export function ResumeSkillsPage() {
       <div className={styles.categories}>
         {RESUME_SKILLS.map((category) => (
           <div key={category.name} className={styles.category}>
-            <div className={styles.categoryName}>
-              <img src="/sprites/soul-red.png" alt="" className={styles.soul} />
-              {category.name}
-            </div>
+            <div className={styles.categoryName}>* {category.name.toUpperCase()}</div>
             {category.skills.map((skill) => {
               const rowDelay = rowIndex++ * ROW_STAGGER_MS
               return (
                 <div key={skill.name} className={styles.skillRow}>
+                  <img src="/sprites/soul-red.png" alt="" className={styles.soul} />
                   <span className={styles.skillName}>{skill.name}</span>
+                  <span className={styles.level}>LV {skill.level}</span>
                   <div className={styles.segments}>
                     {Array.from({ length: SEGMENT_COUNT }, (_, i) => {
                       const filled = i < skill.level

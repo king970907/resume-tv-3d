@@ -1,7 +1,9 @@
 .layout {
   display: flex;
   flex-direction: column;
-  gap: 4%;
+  /* 固定 px：百分比 gap 在 height:auto 的容器裡算出來是 0，提示列/分類
+     會貼在一起。 */
+  gap: 12px;
   /* 不能用 height:100%——見 ResumeIntroPage.module.css 的說明，同一套
      TerminalFrame 共用容器，同樣的坑。 */
   height: auto;
@@ -17,7 +19,7 @@
 .categories {
   display: flex;
   flex-direction: column;
-  gap: 5%;
+  gap: 20px;
 }
 
 .category {
@@ -27,34 +29,57 @@
 }
 
 .categoryName {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   font-family: var(--font-pixel);
   font-size: clamp(11px, 1.5vw, 15px);
-  color: #ffffff;
+  color: var(--color-accent);
   border-bottom: 1px dashed #46493f;
   padding-bottom: 8px;
 }
 
-.soul {
-  width: clamp(12px, 1.4vw, 15px);
-  height: clamp(12px, 1.4vw, 15px);
-  image-rendering: pixelated;
-}
-
 .skillRow {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4%;
+  gap: 3%;
+  /* 左邊留一格給 SOUL 游標，游標沒出現時也先留著，文字才不會在 hover
+     時橫向跳動。 */
+  padding-left: 24px;
+}
+
+/* SOUL 游標：滑鼠移到這一列才出現，標示「選中這一項」。 */
+.soul {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+
+.skillRow:hover .soul {
+  opacity: 1;
+}
+
+.skillRow:hover .skillName {
+  color: var(--color-accent);
 }
 
 .skillName {
   font-family: var(--font-retro);
   font-size: clamp(14px, 2vw, 22px);
   color: #eef0e6;
-  width: 26%;
+  width: 30%;
   flex-shrink: 0;
+}
+
+.level {
+  flex-shrink: 0;
+  width: 3.2em;
+  font-family: var(--font-pixel);
+  font-size: clamp(9px, 1.2vw, 11px);
+  color: #9a9d90;
 }
 
 .segments {
@@ -84,9 +109,28 @@
   transform: scaleX(0);
   transform-origin: left;
   opacity: 0;
-  animation: fillSegment 0.25s ease-out forwards;
+  /* steps()：跳格填滿，不是平滑放大，像素風。 */
+  animation: fillSegment 0.25s steps(3, end) forwards;
 }
 
 @keyframes fillSegment {
   to { transform: scaleX(1); opacity: 1; }
+}
+
+/* 手機：名稱與 LV 在第一行，血條獨立一行佔滿寬度——橫向塞三樣會太擠。 */
+@media (max-width: 600px) {
+  .skillRow {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .skillName {
+    width: auto;
+    flex: 1;
+  }
+
+  .segments {
+    flex-basis: 100%;
+    order: 3;
+  }
 }
