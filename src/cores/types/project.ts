@@ -5,6 +5,10 @@ export interface Project {
   title: string
   description: string
   tech: string[]
+  // 作品頁 ROLE / IMPACT 欄位——負責的部分、成果。選填，沒給值就不顯示那一列。
+  // （STACK 欄位直接用上面的 tech 組出來，不另外存一份。）
+  role?: string
+  impact?: string
   url?: string
   // 2D 作品頁（ProjectPage.tsx）上方截圖區顯示的作品截圖。選填，沒給值
   // 時顯示像素風佔位方塊。跟下面兩個 3D 用的欄位故意分開，不共用同一張

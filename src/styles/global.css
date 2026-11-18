@@ -36,6 +36,10 @@
   --color-crt-white: #e8e8d0;
   --color-dvd-silver: #c0c0c0;
   --color-dvd-case: #2a2a3a;
+  /* Undertale 選取狀態的黃色——履歷/作品頁唯一的強調色，只用在「目前選中/
+     目前這一筆」（SOUL 游標旁的文字、選中框線、標題），不拿來當一般裝飾色，
+     才不會破壞整體黑白像素風。 */
+  --color-accent: #ffe600;
 
   --font-retro: 'VT323', 'Unifont-T', 'Courier New', monospace;
   /* 'Space Mono' 原本列在這裡，但從沒真的載入過（沒有 @font-face 也沒有

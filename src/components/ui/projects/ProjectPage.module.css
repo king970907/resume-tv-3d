@@ -1,27 +1,73 @@
 .layout {
   display: flex;
   flex-direction: column;
-  gap: 3%;
-  height: 100%;
+  gap: 14px;
+  /* min-height 不是 height：內容比框高時（手機）要讓這層跟著長高，外層
+     .boxContent 才會把它算進捲動範圍、保留底部 padding；固定 100% 的話
+     溢出的部分會蓋到 padding 區，最後一個按鈕被底部淡出遮罩吃掉。 */
+  min-height: 100%;
 }
 
-.thumbnailWrap {
+/* ── 像素風視窗框：標題列＋截圖 ── */
+.window {
+  flex-grow: 1;
+  /* 不能設 0：手機上框很矮，內容一多就把截圖擠成一條細縫。給個最小高度，
+     空間不夠時整頁改由 TerminalFrame 的 .boxContent 內部捲動。 */
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  border: 3px solid #eef0e6;
+  background: #000;
+}
+
+.windowBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #eef0e6;
+  color: #050505;
+  font-family: var(--font-pixel);
+  font-size: clamp(9px, 1.2vw, 11px);
+  padding: 3px 8px;
+}
+
+.windowButtons {
+  display: flex;
+  gap: 5px;
+}
+
+.windowButtons i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #050505;
+}
+
+.windowBody {
   position: relative;
   flex-grow: 1;
-  /* 不能設 0：手機上框很矮，描述文字一長就把截圖擠成一條細縫。給個最小
-     高度，空間不夠時整頁改由 TerminalFrame 的 .boxContent 內部捲動。 */
-  min-height: 140px;
+  min-height: 0;
 }
 
-.thumbnailImage,
-.thumbnailPlaceholder {
+/* 疊一層橫向掃描線，呼應外層 CRT 的感覺。 */
+.windowBody::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 4px);
+}
+
+.screenshot,
+.placeholder {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  border: 3px solid #eef0e6;
-  box-sizing: border-box;
 }
 
-.thumbnailImage {
+.screenshot {
   object-fit: cover;
   /* 網站截圖是寫實圖片、不是像素圖，縮小時用預設平滑縮放——設
      pixelated 會變最近鄰取樣，縮小後鋸齒很明顯。截圖的重點資訊（品牌
@@ -29,14 +75,14 @@
   object-position: top center;
 }
 
-.thumbnailPlaceholder {
+.placeholder {
   background-image: repeating-linear-gradient(135deg, #1a1c18 0 10px, #050505 10px 20px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.thumbnailLabel {
+.placeholderLabel {
   font-family: var(--font-retro);
   font-size: clamp(14px, 2.2vw, 22px);
   color: #9a9d90;
@@ -45,74 +91,129 @@
   white-space: nowrap;
 }
 
-.footer {
+/* ── 下方資訊區 ── */
+.info {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.4%;
-}
-
-.headerRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  gap: 10px;
 }
 
 .title {
   margin: 0;
   font-family: var(--font-pixel);
   font-weight: 700;
-  font-size: clamp(16px, 2.6vw, 26px);
+  font-size: clamp(14px, 2.2vw, 22px);
   line-height: 1.2;
-  color: #ffffff;
+  color: var(--color-accent);
+}
+
+.bullet {
+  margin-right: 8px;
+}
+
+.cursor {
+  margin-left: 2px;
+  /* steps(1)：直接亮/滅，不做淡入淡出，像素風的閃爍。 */
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.fields {
+  margin: 0;
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 5.5em 1fr;
   align-items: center;
-  gap: 10px;
-  white-space: nowrap;
+  gap: 12px;
 }
 
-.soul {
-  width: clamp(14px, 1.8vw, 19px);
-  height: clamp(14px, 1.8vw, 19px);
-  image-rendering: pixelated;
-}
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.tag {
+.field dt {
+  justify-self: start;
+  min-width: 100%;
+  background: #eef0e6;
+  color: #050505;
   font-family: var(--font-pixel);
-  font-size: clamp(8px, 1vw, 10px);
-  border: 2px solid #eef0e6;
-  padding: 5px 9px;
-  white-space: nowrap;
+  font-size: clamp(9px, 1.2vw, 11px);
+  text-align: center;
+  padding: 3px 6px;
 }
 
-.desc {
+.field dd {
   margin: 0;
   font-family: var(--font-retro);
-  font-size: clamp(14px, 2vw, 22px);
-  line-height: 1.4;
+  font-size: clamp(15px, 2vw, 20px);
+  line-height: 1.25;
   color: #cfd2c6;
 }
 
 .linkButton {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
   font-family: var(--font-pixel);
-  font-size: clamp(9px, 1.2vw, 12px);
-  color: #eef0e6;
+  font-size: clamp(10px, 1.3vw, 12px);
+  color: var(--color-accent);
   text-decoration: none;
-  border: 3px solid #eef0e6;
-  padding: 8px 16px;
+  border: 3px solid var(--color-accent);
+  padding: 6px 18px 6px 10px;
   cursor: pointer;
 }
 
 .linkButton:hover {
-  background: #eef0e6;
+  background: var(--color-accent);
   color: #050505;
+}
+
+.linkSoul {
+  width: 14px;
+  height: 14px;
+  image-rendering: pixelated;
+}
+
+/* 手機：標籤放在內容上方（左右並排太擠），標籤與內容、欄位之間留大一點
+   的間距。 */
+@media (max-width: 600px) {
+  .layout {
+    gap: 12px;
+  }
+
+  .window {
+    min-height: 96px;
+  }
+
+  .info {
+    gap: 4px;
+  }
+
+  .fields {
+    gap: 8px;
+  }
+
+  .field {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .field dt {
+    min-width: 0;
+    font-size: 10px;
+  }
+
+  .field dd {
+    font-size: 17px;
+    line-height: 1.3;
+  }
 }

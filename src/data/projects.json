@@ -6,6 +6,8 @@
     "tech": [
       "Vue 3"
     ],
+    "role": "程式碼重構、Submodule 共用元件",
+    "impact": "優化 LCP（Core Web Vitals）",
     "screenshot": "/thumbnails/pazzo.webp",
     "thumbnail": "/thumbnails/project-1.png",
     "caseCover": "/thumbnails/case-1.png"
@@ -20,6 +22,8 @@
       "Canvas",
       "Node.js"
     ],
+    "role": "個人專案：CLI 掃描器與視覺化網頁",
+    "impact": "自動偵測循環依賴、熱點節點與效能反模式",
     "screenshot": "/thumbnails/perftree.jpg"
   }
 ]
