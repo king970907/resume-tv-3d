@@ -17,8 +17,6 @@ export function ResumeSkillsPage() {
 
   return (
     <div className={styles.layout}>
-      <div className={styles.prompt}>&gt; cat skills.txt</div>
-
       <div className={styles.categories}>
         {RESUME_SKILLS.map((category) => (
           <div key={category.name} className={styles.category}>

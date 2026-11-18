@@ -1,0 +1,195 @@
+.frame {
+  /* 跟 TerminalFrame 同一組尺寸規則：CRT 螢幕貼圖的長寬比 512:458，92vh 係數
+     是 512/458，保證不超出視窗。 */
+  width: min(1120px, 92vw, calc(92vh * 1.1179));
+  aspect-ratio: 512 / 458;
+  box-sizing: border-box;
+  background: #050505;
+  color: #eef0e6;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4%;
+  padding: 2.6% 3.4%;
+}
+
+.scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background-image: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 0px, rgba(255, 255, 255, 0.05) 1px, transparent 1px, transparent 3px);
+  opacity: 0.5;
+  box-shadow: inset 0 0 9vh rgba(0, 0, 0, 0.85);
+}
+
+/* ── 上方圖片區（小） ── */
+.stage {
+  flex: 0 0 17%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stageAvatar {
+  height: 100%;
+  width: auto;
+  /* 像素圖縮放預設的雙線性模糊會把邊緣糊掉，保持銳利。 */
+  image-rendering: pixelated;
+}
+
+.stageTitle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-pixel);
+  /* 600 不是 700：粗體下「C」會封口變得像「O」（EXPERIENCE 看起來像
+     EXPERIENOE）。 */
+  font-weight: 600;
+  font-size: clamp(20px, 3.2vw, 36px);
+  letter-spacing: 2px;
+  color: #eef0e6;
+}
+
+.stageSoul {
+  width: clamp(18px, 2.4vw, 28px);
+  height: clamp(18px, 2.4vw, 28px);
+  image-rendering: pixelated;
+}
+
+/* ── 中間對話框（資訊，佔最大空間） ── */
+.dialog {
+  flex: 1;
+  /* flex item 預設 min-height 是 auto（＝內容高度）——沒設 0 的話內容一長
+     會把整個外框撐高、下面的選項按鈕被擠出畫面。 */
+  min-height: 0;
+  position: relative;
+}
+
+.dialogBorder,
+.dialogFill {
+  position: absolute;
+  inset: 0;
+}
+
+.dialogBorder {
+  background: #eef0e6;
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+}
+
+.dialogFill {
+  inset: 5px;
+  background: #050505;
+  clip-path: polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px);
+}
+
+.dialogContent {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 22px 28px 26px;
+  overflow: auto;
+  /* 捲動中途文字貼齊上下緣時用漸層遮罩淡出，不要被硬邊框切一半。 */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%);
+}
+
+/* ── 狀態列 ── */
+.status {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+  font-family: var(--font-pixel);
+  font-size: clamp(10px, 1.4vw, 14px);
+}
+
+.name {
+  color: #eef0e6;
+}
+
+.channel {
+  color: #9a9d90;
+}
+
+/* ── 下方選項按鈕 ── */
+.options {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2.4%;
+}
+
+/* 未選取：橘色框（Undertale 戰鬥選單）；選取或滑過：強調色框＋SOUL。 */
+.option {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px 8px 8px 34px;
+  background: transparent;
+  border: 3px solid #ff7a1a;
+  color: #ff7a1a;
+  font-family: var(--font-pixel);
+  font-size: clamp(11px, 1.7vw, 16px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.optionSoul {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+
+.option:hover,
+.option:focus-visible,
+.option[data-selected] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.option:hover .optionSoul,
+.option:focus-visible .optionSoul,
+.option[data-selected] .optionSoul {
+  opacity: 1;
+}
+
+/* 手機直式：寬度只剩 92vw，改成直式比例（比戰鬥畫面需要的高度更高一點，
+   對話框才放得下資訊），按鈕縮小。 */
+@media (max-width: 600px) {
+  .frame {
+    aspect-ratio: auto;
+    height: min(150vw, 88vh);
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .stage {
+    flex-basis: 15%;
+  }
+
+  .dialogContent {
+    padding: 18px 14px 22px;
+  }
+
+  .option {
+    padding: 6px 4px 6px 22px;
+    border-width: 2px;
+    font-size: 12px;
+  }
+
+  .optionSoul {
+    left: 5px;
+    width: 11px;
+    height: 11px;
+    margin-top: -5px;
+  }
+}

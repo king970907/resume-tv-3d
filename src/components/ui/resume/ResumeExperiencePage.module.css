@@ -7,21 +7,6 @@
   height: auto;
 }
 
-.prompt {
-  flex-shrink: 0;
-  /* layout 的 gap 是百分比，在 height:auto 的容器裡算出來是 0，提示列會
-     貼著第一張卡，這裡用固定間距補上。 */
-  margin-bottom: 12px;
-  font-family: var(--font-retro);
-  font-size: clamp(14px, 2vw, 22px);
-  color: #9a9d90;
-}
-
-.cursor {
-  /* steps(1)：直接亮/滅，不做淡入淡出，像素風的閃爍。 */
-  animation: blink 1s steps(1) infinite;
-}
-
 @keyframes blink {
   50% {
     opacity: 0;

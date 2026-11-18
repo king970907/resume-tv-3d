@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { FULLSCREEN_OVERLAY_FADE_DURATION } from '@/cores/const/screen'
-import { RESUME_PAGES } from '@/data/screenPages'
 import { PROJECTS } from '@/data/projects'
 import { TerminalFrame } from '@/components/ui/terminal/TerminalFrame'
+import { ResumeFrame, ResumeStageAvatar, ResumeStageTitle } from '@/components/ui/terminal/ResumeFrame'
 import { ResumeIntroPage } from '@/components/ui/resume/ResumeIntroPage'
 import { ResumeSkillsPage } from '@/components/ui/resume/ResumeSkillsPage'
 import { ResumeExperiencePage } from '@/components/ui/resume/ResumeExperiencePage'
@@ -16,7 +16,7 @@ interface FullscreenOverlayProps {
   fadingOut: boolean
   onClose: () => void
   // 現在顯示的是不是履歷頁、第幾頁——不是 null 時代表這是履歷（不是播放中
-  // 的作品集），用 TerminalFrame + Resume*Page 畫面。跟 projectPageIndex
+  // 的作品集），用 ResumeFrame（戰鬥畫面版面）+ Resume*Page 畫面。跟 projectPageIndex
   // 恰好互斥（isPlaying 為 true 時履歷這邊是 null、作品那邊才有值，反之
   // 亦然），由 MainScene 依 isPlaying 算出來傳進來。
   resumePageIndex: number | null
@@ -43,8 +43,6 @@ export function FullscreenOverlay({ fadingOut, onClose, resumePageIndex, onResum
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const isResumePage = resumePageIndex !== null
-  const resumeChannelCount = RESUME_PAGES.length
   const projectChannelCount = PROJECTS.length
 
   return (
@@ -68,19 +66,16 @@ export function FullscreenOverlay({ fadingOut, onClose, resumePageIndex, onResum
         ✕
       </button>
 
-      {isResumePage && (
-        <TerminalFrame
-          systemLabel="SYS://RESUME.EXE"
-          channelLabel="CH"
-          channel={resumePageIndex + 1}
-          channelCount={resumeChannelCount}
-          onPrevChannel={() => onResumeChannelChange((resumePageIndex + resumeChannelCount - 1) % resumeChannelCount)}
-          onNextChannel={() => onResumeChannelChange((resumePageIndex + 1) % resumeChannelCount)}
+      {resumePageIndex !== null && (
+        <ResumeFrame
+          page={resumePageIndex}
+          onSelectPage={onResumeChannelChange}
+          stage={resumePageIndex === 0 ? <ResumeStageAvatar /> : <ResumeStageTitle text={resumePageIndex === 1 ? 'SKILLS' : 'HISTORY'} />}
         >
           {resumePageIndex === 0 && <ResumeIntroPage />}
           {resumePageIndex === 1 && <ResumeSkillsPage />}
           {resumePageIndex === 2 && <ResumeExperiencePage />}
-        </TerminalFrame>
+        </ResumeFrame>
       )}
 
       {projectPageIndex !== null && (

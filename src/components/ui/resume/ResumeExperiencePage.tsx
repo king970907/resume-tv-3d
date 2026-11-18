@@ -15,8 +15,6 @@ export function ResumeExperiencePage() {
 
   return (
     <div className={styles.layout}>
-      <div className={styles.prompt}>&gt; load save_file<span className={styles.cursor}>_</span></div>
-
       <div className={styles.saves}>
         {RESUME_JOBS.map((job, i) => {
           const isOpen = openIndex === i
