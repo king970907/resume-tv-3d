@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { FULLSCREEN_OVERLAY_FADE_DURATION } from '@/cores/const/screen'
 import { PROJECTS } from '@/data/projects'
 import { TerminalFrame } from '@/components/ui/terminal/TerminalFrame'
-import { ResumeFrame, ResumeStageAvatar, ResumeStageTitle } from '@/components/ui/terminal/ResumeFrame'
+import { ResumeFrame, ResumeStageProfile, ResumeStageTitle } from '@/components/ui/terminal/ResumeFrame'
 import { ResumeIntroPage } from '@/components/ui/resume/ResumeIntroPage'
 import { ResumeSkillsPage } from '@/components/ui/resume/ResumeSkillsPage'
 import { ResumeExperiencePage } from '@/components/ui/resume/ResumeExperiencePage'
@@ -70,7 +70,8 @@ export function FullscreenOverlay({ fadingOut, onClose, resumePageIndex, onResum
         <ResumeFrame
           page={resumePageIndex}
           onSelectPage={onResumeChannelChange}
-          stage={resumePageIndex === 0 ? <ResumeStageAvatar /> : <ResumeStageTitle text={resumePageIndex === 1 ? 'SKILLS' : 'HISTORY'} />}
+          tallStage={resumePageIndex === 0}
+          stage={resumePageIndex === 0 ? <ResumeStageProfile /> : <ResumeStageTitle text={resumePageIndex === 1 ? 'SKILLS' : 'HISTORY'} />}
         >
           {resumePageIndex === 0 && <ResumeIntroPage />}
           {resumePageIndex === 1 && <ResumeSkillsPage />}

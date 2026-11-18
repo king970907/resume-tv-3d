@@ -33,6 +33,69 @@
   justify-content: center;
 }
 
+/* 簡介頁：圖片區拉高，放大人物＋右側簡介。 */
+.stage[data-tall] {
+  flex-basis: 31%;
+}
+
+.profile {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3vw, 40px);
+}
+
+.profileText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profileName {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-weight: 700;
+  font-size: clamp(16px, 2.6vw, 28px);
+  line-height: 1.2;
+  color: var(--color-accent);
+}
+
+.profileRole {
+  font-family: var(--font-pixel);
+  font-size: clamp(8px, 1.1vw, 11px);
+  line-height: 1.5;
+  color: #9a9d90;
+}
+
+.profileFacts {
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profileFact {
+  display: grid;
+  grid-template-columns: 2.8em 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-family: var(--font-retro);
+  font-size: clamp(14px, 1.9vw, 20px);
+  line-height: 1.2;
+}
+
+.profileFact dt {
+  color: #9a9d90;
+}
+
+.profileFact dd {
+  margin: 0;
+  color: #eef0e6;
+  white-space: nowrap;
+}
+
 .stageAvatar {
   height: 100%;
   width: auto;
@@ -174,6 +237,18 @@
 
   .stage {
     flex-basis: 15%;
+  }
+
+  .stage[data-tall] {
+    flex-basis: 27%;
+  }
+
+  .profile {
+    gap: 14px;
+  }
+
+  .profileFact {
+    font-size: 15px;
   }
 
   .dialogContent {

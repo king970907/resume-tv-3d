@@ -7,8 +7,8 @@ import styles from './ResumeIntroPage.module.css'
 const TYPEWRITER_MS_PER_CHAR = 18
 
 // CH 01——個人簡介。放在 ResumeFrame 的對話框裡（見 ResumeFrame.tsx）——
-// 頭像在外框上方的圖片區，這裡只負責對話內容：bio 用空行分段，每段前面
-// 加「* 」，逐字打出來，打完再補一行年資/專長/目前/所在。
+// 頭像、姓名與年資等簡介在外框上方的圖片區（ResumeStageProfile），這裡只
+// 負責對話內容：bio 用空行分段，每段前面加「* 」，逐字打出來。
 export function ResumeIntroPage() {
   const { displayed, done, skip } = useTypewriter(RESUME_INTRO.bio, TYPEWRITER_MS_PER_CHAR)
   const paragraphs = displayed.split('\n\n')
@@ -24,17 +24,6 @@ export function ResumeIntroPage() {
           {!done && i === paragraphs.length - 1 && <span className={styles.cursor}>▌</span>}
         </p>
       ))}
-
-      {done && (
-        <p className={`${styles.line} ${styles.facts}`}>
-          <span className={styles.bullet}>*</span>
-          {RESUME_INTRO.facts.map((fact) => (
-            <span key={fact.label} className={styles.fact}>
-              <span className={styles.factLabel}>{fact.label}</span> {fact.value}
-            </span>
-          ))}
-        </p>
-      )}
     </div>
   )
 }
