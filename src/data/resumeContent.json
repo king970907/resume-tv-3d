@@ -2,7 +2,25 @@
   "intro": {
     "name": "JORDAN LIAO",
     "role": "FRONTEND / CREATIVE TECHNOLOGIST",
-    "bio": "擔任前端工程師已有 5 年經歷，曾參與大型電商平台、會員系統、後台管理系統及企業網站開發，專注於 Vue／Nuxt、生產環境效能優化、SSR 與前端工程化，並具有 Vue 2 → Vue 3 大型重構經驗。\n\n目前投入大型金融系統平台開發，涵蓋資料視覺化、Micro Frontend、APM／Tracing（Dynatrace、OpenTelemetry）整合，以及 AI 輔助開發流程建置。同時具備 Node.js 後端開發經驗，曾參與後台系統與 API 開發，並負責資料轉換器（Converter）等平台工具建置。\n\n具備從前端介面、資料視覺化到後端服務與系統整合的開發經驗，持續提升系統可維護性、開發效率與團隊協作流程。"
+    "bio": "擔任前端工程師已有 5 年經歷，曾參與大型電商平台、會員系統、後台管理系統及企業網站開發，專注於 Vue／Nuxt、生產環境效能優化、SSR 與前端工程化，並具有 Vue 2 → Vue 3 大型重構經驗。\n\n目前投入大型金融系統平台開發，涵蓋資料視覺化、Micro Frontend、APM／Tracing（Dynatrace、OpenTelemetry）整合，以及 AI 輔助開發流程建置。同時具備 Node.js 後端開發經驗，曾參與後台系統與 API 開發，並負責資料轉換器（Converter）等平台工具建置。\n\n具備從前端介面、資料視覺化到後端服務與系統整合的開發經驗，持續提升系統可維護性、開發效率與團隊協作流程。",
+    "facts": [
+      {
+        "label": "年資",
+        "value": "5 年"
+      },
+      {
+        "label": "專長",
+        "value": "Vue · Nuxt"
+      },
+      {
+        "label": "目前",
+        "value": "金融系統"
+      },
+      {
+        "label": "所在",
+        "value": "台中"
+      }
+    ]
   },
   "skills": [
     {

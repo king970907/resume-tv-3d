@@ -34,6 +34,12 @@ export interface ResumeJob {
   highlights: string[]
 }
 
-export const RESUME_INTRO: { name: string; role: string; bio: string } = resumeData.intro
+// 簡介頁左側名片的欄位（年資/專長/目前/所在），label 直接顯示在畫面上。
+export interface ResumeFact {
+  label: string
+  value: string
+}
+
+export const RESUME_INTRO: { name: string; role: string; bio: string; facts: ResumeFact[] } = resumeData.intro
 export const RESUME_SKILLS: ResumeSkillCategory[] = resumeData.skills
 export const RESUME_JOBS: ResumeJob[] = resumeData.jobs
